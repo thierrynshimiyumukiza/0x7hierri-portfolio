@@ -48,28 +48,28 @@ type HomepageExpertiseRow = {
 };
 
 function oneLine(text: string | null | undefined): string {
-  if (!text) {
-    return "";
-  }
-
+  if (!text) return "";
   return text.replace(/\s+/g, " ").trim();
 }
 
 export default async function HomePage() {
   const supabase = createAdminClient();
-                    
-  
-  const fromLooseTable = <T extends keyof Database["public"]["Tables"]>(
-  table: T
-) => {
-  return supabase.from(table);
-};                                                                                                                                                                                                                                                
-  
 
   const fromLooseTable = <T extends keyof Database["public"]["Tables"]>(table: T) =>
-    supabase.from(table);                    
-  
-  const [hero, profile, stats, projects, studies, blogs, navItems, homepageSettings, homepageExpertise, socialLinks] = await Promise.all([
+    supabase.from(table);
+
+  const [
+    hero,
+    profile,
+    stats,
+    projects,
+    studies,
+    blogs,
+    navItems,
+    homepageSettings,
+    homepageExpertise,
+    socialLinks,
+  ] = await Promise.all([
     supabase.from("hero_settings").select("*").single(),
     supabase.from("profile").select("*").single(),
     supabase.from("statistics").select("*").eq("visible", true).order("display_order"),
@@ -106,23 +106,24 @@ export default async function HomePage() {
   const studyRows = (studies.data as Tables<"study_categories">[] | null) ?? [];
   const blogRows = (blogs.data as Tables<"blog_posts">[] | null) ?? [];
   const navigationRows = (navItems.data as Tables<"navigation">[] | null) ?? [];
+
   const homepageSettingsMissing = isMissingTableError(homepageSettings.error ?? null, "homepage_settings");
   const homepageExpertiseMissing = isMissingTableError(homepageExpertise.error ?? null, "homepage_expertise");
   const socialLinksMissing = isMissingTableError(socialLinks.error ?? null, "social_links");
 
   const homepageSettingsRow =
-    (!homepageSettings.error || homepageSettingsMissing)
+    !homepageSettings.error || homepageSettingsMissing
       ? ((homepageSettings.data as HomepageSettingsRow | null) ?? null)
       : null;
 
   const homepageExpertiseRows =
-    (!homepageExpertise.error || homepageExpertiseMissing)
+    !homepageExpertise.error || homepageExpertiseMissing
       ? ((homepageExpertise.data as HomepageExpertiseRow[] | null) ?? [])
       : [];
 
   const socialLinkRows =
-    (!socialLinks.error || socialLinksMissing)
-      ? (((socialLinks.data as Array<{ id: string; label: string; url: string; platform: string | null }> | null) ?? []))
+    !socialLinks.error || socialLinksMissing
+      ? ((socialLinks.data as Array<{ id: string; label: string; url: string; platform: string | null }> | null) ?? [])
       : [];
 
   const aboutLink = navigationRows.find((item) => item.url.startsWith("/about"))?.url ?? "/about";
@@ -167,7 +168,7 @@ export default async function HomePage() {
   ];
 
   const liveItems: LiveItem[] = [
-    ...(blogRows ?? []).slice(0, 3).map((b) => ({
+    ...blogRows.slice(0, 3).map((b) => ({
       type: "published" as const,
       title: b.title,
       url: `/blog/${b.slug}`,
@@ -175,7 +176,7 @@ export default async function HomePage() {
         ? formatDistanceToNow(new Date(b.published_at), { addSuffix: true })
         : "",
     })),
-    ...(studyRows ?? []).slice(0, 2).map((s) => ({
+    ...studyRows.slice(0, 2).map((s) => ({
       type: "updated" as const,
       title: s.title,
       url: `/studies/${s.slug}`,
@@ -183,7 +184,7 @@ export default async function HomePage() {
         ? formatDistanceToNow(new Date(s.updated_at), { addSuffix: true })
         : "",
     })),
-    ...(projectRows ?? []).slice(0, 2).map((p) => ({
+    ...projectRows.slice(0, 2).map((p) => ({
       type: "in_progress" as const,
       title: p.title,
       url: `/projects/${p.slug}`,
@@ -235,7 +236,8 @@ export default async function HomePage() {
       }))}
       homepageSettings={{
         about_preview_title: oneLine(homepageSettingsRow?.about_preview_title),
-        about_preview_text: oneLine(homepageSettingsRow?.about_preview_text) || profileRow?.bio || "",
+        about_preview_text:
+          oneLine(homepageSettingsRow?.about_preview_text) || profileRow?.bio || "",
         about_preview_button_text: oneLine(homepageSettingsRow?.about_preview_button_text),
         about_preview_url: oneLine(homepageSettingsRow?.about_preview_url) || aboutLink,
       }}
