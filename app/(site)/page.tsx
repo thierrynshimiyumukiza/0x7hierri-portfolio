@@ -57,9 +57,12 @@ function oneLine(text: string | null | undefined): string {
 
 export default async function HomePage() {
   const supabase = createAdminClient();
-  const fromLooseTable = (table: string) =>
-    supabase.from(table as unknown as keyof Database["public"]["Tables"]);
-
+  const fromLooseTable = <T extends keyof Database["public"]["Tables"]>(
+  table: T
+) => {
+  return supabase.from(table);
+};                                                                                                                                                                                                                                                
+  
   const [hero, profile, stats, projects, studies, blogs, navItems, homepageSettings, homepageExpertise, socialLinks] = await Promise.all([
     supabase.from("hero_settings").select("*").single(),
     supabase.from("profile").select("*").single(),
