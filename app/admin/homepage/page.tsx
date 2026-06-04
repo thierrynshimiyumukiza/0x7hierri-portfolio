@@ -10,7 +10,7 @@ import {
   updateHomepageExpertise,
 } from "@/actions/homepage";
 import ImageInputField from "@/components/admin/ImageInputField";
-import type { Tables } from "@/types/database";
+import type { Database, Tables } from "@/types/database";
 
 type AdminHomepagePageProps = {
   searchParams?: {
@@ -43,6 +43,13 @@ type ExpertiseRow = {
   visible: boolean | null;
 };
 
+type StatisticRow = Tables<"statistics"> & {
+  icon?: string | null;
+};
+
+type CreateStatisticInput = Parameters<typeof createStatistic>[0];
+type UpdateStatisticInput = Parameters<typeof updateStatistic>[1];
+
 const PAGE_SIZE = 8;
 
 function normalizeValue(value: FormDataEntryValue | null): string {
@@ -51,6 +58,8 @@ function normalizeValue(value: FormDataEntryValue | null): string {
 
 export default async function AdminHomepagePage({ searchParams }: AdminHomepagePageProps) {
   const supabase = createAdminClient();
+  const fromLooseTable = (table: string) =>
+    supabase.from(table as unknown as keyof Database["public"]["Tables"]);
   const query = (searchParams?.q ?? "").trim().toLowerCase();
   const currentPage = Number(searchParams?.page ?? "1");
   const page = Number.isFinite(currentPage) && currentPage > 0 ? currentPage : 1;
@@ -59,8 +68,8 @@ export default async function AdminHomepagePage({ searchParams }: AdminHomepageP
     supabase.from("hero_settings").select("*").maybeSingle(),
     supabase.from("statistics").select("*").order("display_order", { ascending: true }),
     supabase.from("profile").select("*").maybeSingle(),
-    (supabase as any).from("homepage_settings").select("*").maybeSingle(),
-    (supabase as any).from("homepage_expertise").select("*").order("display_order", { ascending: true }),
+    fromLooseTable("homepage_settings").select("*").maybeSingle(),
+    fromLooseTable("homepage_expertise").select("*").order("display_order", { ascending: true }),
   ]);
 
   if (heroResult.error || statsResult.error || profileResult.error) {
@@ -75,7 +84,7 @@ export default async function AdminHomepagePage({ searchParams }: AdminHomepageP
   }
 
   const hero = (heroResult.data as Tables<"hero_settings"> | null) ?? null;
-  const stats = (statsResult.data as Tables<"statistics">[] | null) ?? [];
+  const stats = (statsResult.data as StatisticRow[] | null) ?? [];
   const profile = (profileResult.data as Tables<"profile"> | null) ?? null;
   const homepageSettings = (settingsResult.data as HomepageSettingRow | null) ?? null;
   const expertiseRows = (expertiseResult.data as ExpertiseRow[] | null) ?? [];
@@ -138,7 +147,7 @@ export default async function AdminHomepagePage({ searchParams }: AdminHomepageP
       icon: normalizeValue(formData.get("icon")) || null,
       display_order: Number(formData.get("display_order") ?? 0),
       visible: formData.get("visible") === "on",
-    } as any);
+    } as CreateStatisticInput);
   }
 
   async function saveStat(formData: FormData) {
@@ -153,7 +162,7 @@ export default async function AdminHomepagePage({ searchParams }: AdminHomepageP
       icon: normalizeValue(formData.get("icon")) || null,
       display_order: Number(formData.get("display_order") ?? 0),
       visible: formData.get("visible") === "on",
-    } as any);
+    } as UpdateStatisticInput);
   }
 
   async function removeStat(formData: FormData) {
@@ -275,7 +284,7 @@ export default async function AdminHomepagePage({ searchParams }: AdminHomepageP
               <input type="hidden" name="id" value={item.id} />
               <input name="number" defaultValue={item.number} className="rounded border border-[--border] bg-[--bg-base] px-3 py-2 text-sm" required />
               <input name="label" defaultValue={item.label} className="rounded border border-[--border] bg-[--bg-base] px-3 py-2 text-sm" required />
-              <input name="icon" defaultValue={(item as any).icon ?? ""} className="rounded border border-[--border] bg-[--bg-base] px-3 py-2 text-sm" />
+              <input name="icon" defaultValue={item.icon ?? ""} className="rounded border border-[--border] bg-[--bg-base] px-3 py-2 text-sm" />
               <input name="display_order" type="number" defaultValue={item.display_order ?? 0} className="rounded border border-[--border] bg-[--bg-base] px-3 py-2 text-sm" />
               <label className="flex items-center gap-2 text-xs text-[--text-dim]"><input name="visible" type="checkbox" defaultChecked={item.visible ?? true} /> visible</label>
               <button className="sm:col-span-5 rounded border border-[--border] px-3 py-2 text-sm text-[--text-muted]">save stat</button>

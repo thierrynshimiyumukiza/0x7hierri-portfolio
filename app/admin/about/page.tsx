@@ -23,7 +23,7 @@ import { redirect } from "next/navigation";
 import ImageInputField from "@/components/admin/ImageInputField";
 import { isMissingTableError, isMissingTableErrorMessage } from "@/lib/supabase/errors";
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { Tables } from "@/types/database";
+import type { Database, Tables } from "@/types/database";
 
 type AdminAboutPageProps = {
   searchParams?: {
@@ -59,6 +59,8 @@ type AboutSkillGroupRow = {
 
 export default async function AdminAboutPage({ searchParams }: AdminAboutPageProps) {
   const supabase = createAdminClient();
+  const fromLooseTable = (table: string) =>
+    supabase.from(table as unknown as keyof Database["public"]["Tables"]);
 
   const [
     { data: aboutData, error: aboutError },
@@ -73,9 +75,9 @@ export default async function AdminAboutPage({ searchParams }: AdminAboutPagePro
     supabase.from("career_timeline").select("*").order("display_order", { ascending: true }),
     supabase.from("certifications").select("*").order("display_order", { ascending: true }),
     supabase.from("education_entries").select("*").order("display_order", { ascending: true }),
-    (supabase as any).from("about_focus_areas").select("*").order("display_order", { ascending: true }),
-    (supabase as any).from("about_interests").select("*").order("display_order", { ascending: true }),
-    (supabase as any).from("about_skill_groups").select("*").order("display_order", { ascending: true }),
+    fromLooseTable("about_focus_areas").select("*").order("display_order", { ascending: true }),
+    fromLooseTable("about_interests").select("*").order("display_order", { ascending: true }),
+    fromLooseTable("about_skill_groups").select("*").order("display_order", { ascending: true }),
   ]);
 
   const educationTableMissing = isMissingTableError(educationError, "education_entries");

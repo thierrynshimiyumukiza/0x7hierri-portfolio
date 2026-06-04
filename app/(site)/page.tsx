@@ -3,7 +3,7 @@ import { format, formatDistanceToNow } from "date-fns";
 import { getSeoMetadata } from "@/lib/seo";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isMissingTableError } from "@/lib/supabase/errors";
-import type { Tables } from "@/types/database";
+import type { Database, Tables } from "@/types/database";
 import HomePageClient from "@/components/site/home/HomePageClient";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -57,6 +57,8 @@ function oneLine(text: string | null | undefined): string {
 
 export default async function HomePage() {
   const supabase = createAdminClient();
+  const fromLooseTable = (table: string) =>
+    supabase.from(table as unknown as keyof Database["public"]["Tables"]);
 
   const [hero, profile, stats, projects, studies, blogs, navItems, homepageSettings, homepageExpertise, socialLinks] = await Promise.all([
     supabase.from("hero_settings").select("*").single(),
@@ -83,9 +85,9 @@ export default async function HomePage() {
       .order("published_at", { ascending: false })
       .limit(4),
     supabase.from("navigation").select("*").eq("visible", true).order("display_order"),
-    (supabase as any).from("homepage_settings").select("*").maybeSingle(),
-    (supabase as any).from("homepage_expertise").select("*").eq("visible", true).order("display_order"),
-    (supabase as any).from("social_links").select("*").eq("visible", true).order("display_order"),
+    fromLooseTable("homepage_settings").select("*").maybeSingle(),
+    fromLooseTable("homepage_expertise").select("*").eq("visible", true).order("display_order"),
+    fromLooseTable("social_links").select("*").eq("visible", true).order("display_order"),
   ]);
 
   const heroRow = (hero.data as Tables<"hero_settings"> | null) ?? null;
