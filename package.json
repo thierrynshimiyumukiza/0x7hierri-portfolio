@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test:markdown": "tsx scripts/markdown-regression.tsx"
+    "test:markdown": "tsx scripts/markdown-regression.tsx",
+    "types:gen": "npx supabase gen types typescript --project-id ryqrokwumeyjtuyylaea --schema public > types/database.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",

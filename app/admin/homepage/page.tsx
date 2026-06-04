@@ -58,8 +58,8 @@ function normalizeValue(value: FormDataEntryValue | null): string {
 
 export default async function AdminHomepagePage({ searchParams }: AdminHomepagePageProps) {
   const supabase = createAdminClient();
-  const fromLooseTable = (table: string) =>
-    supabase.from(table as unknown as keyof Database["public"]["Tables"]);
+  const fromLooseTable = <T extends keyof Database["public"]["Tables"]>(table: T) =>
+    supabase.from(table);
   const query = (searchParams?.q ?? "").trim().toLowerCase();
   const currentPage = Number(searchParams?.page ?? "1");
   const page = Number.isFinite(currentPage) && currentPage > 0 ? currentPage : 1;

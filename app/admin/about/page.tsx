@@ -59,8 +59,8 @@ type AboutSkillGroupRow = {
 
 export default async function AdminAboutPage({ searchParams }: AdminAboutPageProps) {
   const supabase = createAdminClient();
-  const fromLooseTable = (table: string) =>
-    supabase.from(table as unknown as keyof Database["public"]["Tables"]);
+  const fromLooseTable = <T extends keyof Database["public"]["Tables"]>(table: T) =>
+    supabase.from(table);
 
   const [
     { data: aboutData, error: aboutError },

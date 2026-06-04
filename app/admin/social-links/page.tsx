@@ -14,8 +14,8 @@ type SocialLinkRow = {
 
 export default async function AdminSocialLinksPage() {
   const supabase = createAdminClient();
-  const fromLooseTable = (table: string) =>
-    supabase.from(table as unknown as keyof Database["public"]["Tables"]);
+  const fromLooseTable = <T extends keyof Database["public"]["Tables"]>(table: T) =>
+    supabase.from(table);
   const { data, error } = await fromLooseTable("social_links")
     .select("*")
     .order("display_order", { ascending: true });

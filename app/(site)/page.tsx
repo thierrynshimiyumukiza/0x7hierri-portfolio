@@ -57,12 +57,18 @@ function oneLine(text: string | null | undefined): string {
 
 export default async function HomePage() {
   const supabase = createAdminClient();
+<<<<<<< HEAD
   const fromLooseTable = <T extends keyof Database["public"]["Tables"]>(
   table: T
 ) => {
   return supabase.from(table);
 };                                                                                                                                                                                                                                                
   
+=======
+  const fromLooseTable = <T extends keyof Database["public"]["Tables"]>(table: T) =>
+    supabase.from(table);
+
+>>>>>>> 38f5217 (Fix Supabase typing issues and stabilize admin queries)
   const [hero, profile, stats, projects, studies, blogs, navItems, homepageSettings, homepageExpertise, socialLinks] = await Promise.all([
     supabase.from("hero_settings").select("*").single(),
     supabase.from("profile").select("*").single(),
