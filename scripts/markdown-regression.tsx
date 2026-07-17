@@ -24,9 +24,9 @@ const tests: TestCase[] = [
     name: "headings",
     markdown: "# Heading 1\n\n## Heading 2\n\n### Heading 3",
     check(html) {
-      assert.match(html, /<h1[^>]*>Heading 1<\/h1>/);
-      assert.match(html, /<h2[^>]*>Heading 2<\/h2>/);
-      assert.match(html, /<h3[^>]*>Heading 3<\/h3>/);
+      assert.match(html, /<h1[^>]*><a href="#heading-1"[^>]*>Heading 1<\/a><\/h1>/);
+      assert.match(html, /<h2[^>]*><a href="#heading-2"[^>]*>Heading 2<\/a><\/h2>/);
+      assert.match(html, /<h3[^>]*><a href="#heading-3"[^>]*>Heading 3<\/a><\/h3>/);
     },
   },
   {
@@ -74,6 +74,113 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "GFM tasks, strikethrough, automatic links, and footnotes",
+    markdown: "- [ ] Open task\n- [x] Done task\n\n~~Removed~~ https://example.com\n\nReference[^1]\n\n[^1]: Footnote text",
+    check(html) {
+      assert.equal(countMatches(html, /type="checkbox"/g), 2);
+      assert.match(html, /<del>Removed<\/del>/);
+      assert.match(html, /href="https:\/\/example\.com"/);
+      assert.match(html, /Footnote text/);
+    },
+  },
+  {
+    name: "math, highlight, superscript, and subscript",
+    markdown: "Inline $x^2$ and block:\n\n$$\\frac{a}{b}$$\n\n==Marked== x^2^ H~2~O",
+    check(html) {
+      assert.ok(countMatches(html, /katex/g) >= 2);
+      assert.match(html, /<mark>Marked<\/mark>/);
+      assert.match(html, /x<sup>2<\/sup>/);
+      assert.match(html, /H<sub>2<\/sub>O/);
+    },
+  },
+  {
+    name: "details, TOC, and GitHub alerts",
+    markdown: "[TOC]\n\n# Start\n\n## Next\n\n<details><summary>Show more</summary>Hidden content</details>\n\n> [!WARNING]\n> Proceed carefully.",
+    check(html) {
+      assert.match(html, /href="#start"/);
+      assert.match(html, /href="#next"/);
+      assert.match(html, /<details><summary>Show more<\/summary>Hidden content<\/details>/);
+      assert.match(html, /<aside[^>]*border-\[--accent-amber\][^>]*>/);
+      assert.match(html, /Proceed carefully/);
+    },
+  },
+  {
+    name: "all GitHub alert variants",
+    markdown: "> [!NOTE]\n> Note\n\n> [!TIP]\n> Tip\n\n> [!IMPORTANT]\n> Important\n\n> [!WARNING]\n> Warning\n\n> [!CAUTION]\n> Caution",
+    check(html) {
+      assert.equal(countMatches(html, /<aside\b/g), 5);
+      assert.match(html, /border-\[--accent-blue\]/);
+      assert.match(html, /border-\[--accent-green\]/);
+      assert.match(html, /border-violet-500/);
+      assert.match(html, /border-\[--accent-amber\]/);
+      assert.match(html, /border-red-500/);
+    },
+  },
+  {
+    name: "Mermaid fenced code block detection",
+    markdown: [
+      "```mermaid",
+      "flowchart TD",
+      "  A --> B",
+      "```",
+      "",
+      "```mermaid",
+      "classDiagram",
+      "  class Animal",
+      "```",
+      "",
+      "```mermaid",
+      "stateDiagram-v2",
+      "  [*] --> Active",
+      "```",
+      "",
+      "```mermaid",
+      "erDiagram",
+      "  CUSTOMER ||--o{ ORDER : places",
+      "```",
+      "",
+      "```mermaid",
+      "gitGraph",
+      "  commit id: \"ZERO\"",
+      "```",
+      "",
+      "```mermaid",
+      "gantt",
+      "  title Roadmap",
+      "  dateFormat YYYY-MM-DD",
+      "  section Build",
+      "  Feature : 2026-01-01, 1d",
+      "```",
+      "",
+      "```mermaid",
+      "mindmap",
+      "  root((Portfolio))",
+      "    Markdown",
+      "```",
+      "",
+      "```mermaid",
+      "timeline",
+      "  title Timeline",
+      "  2026 : Launch",
+      "```",
+      "",
+      "```mermaid",
+      "requirementDiagram",
+      "  requirement test_req {",
+      "    id: 1",
+      "    text: Test requirement",
+      "    risk: low",
+      "    verifymethod: test",
+      "  }",
+      "```",
+    ].join("\n"),
+    check(html) {
+      assert.equal(countMatches(html, /Rendering diagram\.\.\./g), 9);
+      assert.doesNotMatch(html, /<pre\b/);
+      assert.doesNotMatch(html, /language-mermaid/);
+    },
+  },
+  {
     name: "links",
     markdown: "Read [docs](https://example.com/docs).",
     check(html) {
@@ -85,9 +192,9 @@ const tests: TestCase[] = [
     name: "images",
     markdown: "![Alt text](<https://example.com/path/image test(1).png> \"Caption\")",
     check(html) {
-      assert.equal(countMatches(html, /<figure\b/g), 1);
+      assert.equal(countMatches(html, /<img\b/g), 1);
       assert.match(html, /src="https:\/\/example.com\/path\/image%20test\(1\)\.png"/);
-      assert.match(html, /<figcaption[^>]*>Caption<\/figcaption>/);
+      assert.match(html, /<span class="mt-2 block text-sm text-\[--text-dim\]">Caption<\/span>/);
     },
   },
   {
@@ -120,12 +227,12 @@ const tests: TestCase[] = [
       "![diagram](https://example.com/diagram.png)",
     ].join("\n"),
     check(html) {
-      assert.match(html, /<h1[^>]*>Intro<\/h1>/);
+      assert.match(html, /<h1[^>]*><a href="#intro"[^>]*>Intro<\/a><\/h1>/);
       assert.match(html, /<code class="rounded [^"]*">inline<\/code>/);
       assert.match(html, /language-python/);
       assert.match(html, /<blockquote\b/);
       assert.match(html, /<table\b/);
-      assert.match(html, /<figure\b/);
+      assert.match(html, /<img[^>]*src="https:\/\/example\.com\/diagram\.png"/);
     },
   },
   {

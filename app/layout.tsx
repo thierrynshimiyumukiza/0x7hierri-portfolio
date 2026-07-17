@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import Script from "next/script";
 import "./globals.css";
+import "katex/dist/katex.min.css";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
