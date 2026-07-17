@@ -19,6 +19,12 @@ function countMatches(value: string, pattern: RegExp): number {
   return (value.match(pattern) ?? []).length;
 }
 
+function serializeContentForForm(content: string): string {
+  const formData = new FormData();
+  formData.set("content", content);
+  return String(formData.get("content") ?? "");
+}
+
 const tests: TestCase[] = [
   {
     name: "headings",
@@ -178,6 +184,18 @@ const tests: TestCase[] = [
       assert.equal(countMatches(html, /Rendering diagram\.\.\./g), 9);
       assert.doesNotMatch(html, /<pre\b/);
       assert.doesNotMatch(html, /language-mermaid/);
+    },
+  },
+  {
+    name: "Mermaid fenced code block form payload preservation",
+    markdown: [
+      "```mermaid",
+      "flowchart TD",
+      "A --> B",
+      "```",
+    ].join("\n"),
+    check(_html) {
+      assert.equal(serializeContentForForm(this.markdown), this.markdown);
     },
   },
   {
