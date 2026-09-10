@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { formatDateTime } from "@/lib/utils";
 import type { Tables } from "@/types/database";
 import SectionHeader from "@/components/site/SectionHeader";
+import Thumbnail from "@/components/site/Thumbnail";
 
 export default async function LatestBlogPosts() {
   const supabase = createClient();
@@ -48,14 +49,16 @@ export default async function LatestBlogPosts() {
               >
                 blg
               </div>
-              {post.thumbnail_url ? (
-                <img
-                  src={post.thumbnail_url}
-                  alt={post.title}
-                  loading="lazy"
-                  style={{ width: "100%", height: "140px", objectFit: "cover", borderRadius: "7px", border: "0.5px solid var(--border)" }}
-                />
-              ) : null}
+              <Thumbnail
+                src={post.thumbnail_url}
+                alt={post.title}
+                seed={post.title}
+                ratio="16/9"
+                maxHeight={190}
+                sizes="(max-width: 800px) 100vw, 700px"
+                label="blg"
+                radius={7}
+              />
 
               <p style={{ fontSize: "9.5px", color: "var(--text-dim)", fontFamily: "var(--font-mono), monospace" }}>
                 {formatDateTime(post.published_at)}

@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
+import Thumbnail from "@/components/site/Thumbnail";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, BookOpen, Bug, Code2, Cpu, Network, SearchCheck, Shield } from "lucide-react";
 
@@ -368,29 +368,14 @@ export default function HomePageClient({
                 position: "relative",
               }}
             >
-              {profile.profile_picture_url ? (
-                <Image
-                  src={profile.profile_picture_url}
-                  alt={profile.username || "0x7hierri"}
-                  fill
-                  style={{ objectFit: "cover" }}
-                />
-              ) : (
-                <div
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontFamily: "var(--font-mono), monospace",
-                    fontSize: "16px",
-                    color: "var(--accent-blue)",
-                  }}
-                >
-                  0x
-                </div>
-              )}
+              <Thumbnail
+                src={profile.profile_picture_url}
+                alt={profile.username || "0x7hierri"}
+                seed={profile.username || "0x7hierri"}
+                ratio="1/1"
+                radius={999}
+                eager
+              />
             </div>
 
             <div
@@ -635,30 +620,14 @@ export default function HomePageClient({
                         e.currentTarget.style.transform = "translateY(0)";
                       }}
                     >
-                      <div
-                        style={{
-                          width: "100%",
-                          height: "100px",
-                          background: "var(--bg-elevated)",
-                          position: "relative",
-                          overflow: "hidden",
-                          flexShrink: 0,
-                        }}
-                      >
-                        {item.thumbnail_url ? (
-                          <Image src={item.thumbnail_url} alt={item.title} fill style={{ objectFit: "cover" }} />
-                        ) : (
-                          <div
-                            style={{
-                              width: "100%",
-                              height: "100%",
-                              backgroundImage:
-                                "repeating-linear-gradient(45deg,var(--border) 0,var(--border) 1px,transparent 0,transparent 50%)",
-                              backgroundSize: "8px 8px",
-                              opacity: 0.4,
-                            }}
-                          />
-                        )}
+                      <div style={{ position: "relative" }}>
+                        <Thumbnail
+                          src={item.thumbnail_url}
+                          alt={item.title}
+                          seed={item.title}
+                          ratio="16/9"
+                          radius={0}
+                        />
 
                         <div
                           style={{

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Tables } from "@/types/database";
 import SectionHeader from "@/components/site/SectionHeader";
+import Thumbnail from "@/components/site/Thumbnail";
 
 export default async function StudyTracksGrid() {
   const supabase = createAdminClient();
@@ -47,14 +48,14 @@ export default async function StudyTracksGrid() {
               >
                 std
               </div>
-              {track.thumbnail_url ? (
-                <img
-                  src={track.thumbnail_url}
-                  alt={track.title}
-                  loading="lazy"
-                  style={{ width: "100%", height: "140px", objectFit: "cover", borderRadius: "7px", border: "0.5px solid var(--border)" }}
-                />
-              ) : null}
+              <Thumbnail
+                src={track.thumbnail_url}
+                alt={track.title}
+                seed={track.title}
+                ratio="16/9"
+                label="std"
+                radius={7}
+              />
 
               <p style={{ fontSize: "13px", fontWeight: 500, color: "var(--text-primary)" }}>{track.title}</p>
               {track.description ? (

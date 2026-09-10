@@ -2,12 +2,15 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { ArrowLeft, Eye, EyeOff, Loader2, Lock, Mail, TriangleAlert } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 export default function AdminLoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -30,33 +33,75 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <section className="flex min-h-screen items-center justify-center bg-[--bg-base] p-4">
-      <form onSubmit={onSubmit} className="w-full max-w-md space-y-4 rounded-lg border border-[--border] bg-[--bg-surface] p-6">
-        <input
-          type="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          className="w-full rounded border border-[--border] bg-[--bg-base] px-3 py-2 text-sm"
-          required
-        />
-        <input
-          type="password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          className="w-full rounded border border-[--border] bg-[--bg-base] px-3 py-2 text-sm"
-          required
-        />
+    <main className="admin-shell login-page">
+      <div className="login-card">
+        <div className="login-brand">
+          <span className="admin-nav-mark">0x</span>
+          <div>
+            <p className="login-title">Control room</p>
+            <p className="admin-hint">Sign in to manage the site.</p>
+          </div>
+        </div>
 
-        {error ? <p className="text-sm text-red-400">{error}</p> : null}
+        <form onSubmit={onSubmit} className="login-form">
+          <label className="admin-field">
+            <span className="admin-label">Email</span>
+            <div className="login-input-wrap">
+              <Mail size={14} aria-hidden="true" />
+              <input
+                type="email"
+                autoComplete="username"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="you@example.com"
+                className="admin-input"
+                required
+              />
+            </div>
+          </label>
 
-        <button
-          disabled={loading}
-          type="submit"
-          className="w-full rounded bg-[--accent-blue] px-4 py-2 text-sm font-medium text-[--bg-base]"
-        >
-          {loading ? "..." : "login"}
-        </button>
-      </form>
-    </section>
+          <label className="admin-field">
+            <span className="admin-label">Password</span>
+            <div className="login-input-wrap">
+              <Lock size={14} aria-hidden="true" />
+              <input
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="Your password"
+                className="admin-input"
+                required
+              />
+              <button
+                type="button"
+                className="icon-button"
+                onClick={() => setShowPassword((current) => !current)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff size={14} aria-hidden="true" /> : <Eye size={14} aria-hidden="true" />}
+              </button>
+            </div>
+          </label>
+
+          {error ? (
+            <p className="login-error" role="alert">
+              <TriangleAlert size={13} aria-hidden="true" />
+              {error}
+            </p>
+          ) : null}
+
+          <button type="submit" disabled={loading} className="admin-button admin-button-primary login-submit">
+            {loading ? <Loader2 size={14} className="editor-spin" aria-hidden="true" /> : null}
+            {loading ? "Signing in…" : "Sign in"}
+          </button>
+        </form>
+
+        <Link href="/" className="login-back">
+          <ArrowLeft size={12} aria-hidden="true" />
+          Back to the site
+        </Link>
+      </div>
+    </main>
   );
 }

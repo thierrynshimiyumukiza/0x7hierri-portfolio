@@ -4,6 +4,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { Tables } from "@/types/database";
+import Thumbnail from "@/components/site/Thumbnail";
 
 type StudiesCategorySearchProps = {
   categories: Tables<"study_categories">[];
@@ -69,14 +70,14 @@ export default function StudiesCategorySearch({ categories }: StudiesCategorySea
             >
               std
             </div>
-            {category.thumbnail_url ? (
-              <img
-                src={category.thumbnail_url}
-                alt={category.title}
-                loading="lazy"
-                style={{ width: "100%", height: "140px", borderRadius: "7px", objectFit: "cover", border: "0.5px solid var(--border)" }}
-              />
-            ) : null}
+            <Thumbnail
+              src={category.thumbnail_url}
+              alt={category.title}
+              seed={category.title}
+              ratio="16/9"
+              label="std"
+              radius={7}
+            />
 
             <p style={{ fontSize: "13px", fontWeight: 500, color: "var(--text-primary)" }}>{category.title}</p>
             {category.description ? (

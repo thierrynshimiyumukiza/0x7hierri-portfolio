@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import type { Tables } from "@/types/database";
 import SectionHeader from "@/components/site/SectionHeader";
+import Thumbnail from "@/components/site/Thumbnail";
 
 export default async function FeaturedProjects() {
   const supabase = createClient();
@@ -48,14 +49,14 @@ export default async function FeaturedProjects() {
                 prj
               </div>
 
-              {project.thumbnail_url ? (
-                <img
-                  src={project.thumbnail_url}
-                  alt={project.title}
-                  loading="lazy"
-                  style={{ width: "100%", height: "160px", objectFit: "cover", borderRadius: "7px", border: "0.5px solid var(--border)" }}
-                />
-              ) : null}
+              <Thumbnail
+                src={project.thumbnail_url}
+                alt={project.title}
+                seed={project.title}
+                ratio="16/9"
+                label="prj"
+                radius={7}
+              />
 
               <Link
                 href={`/projects#${project.slug}`}

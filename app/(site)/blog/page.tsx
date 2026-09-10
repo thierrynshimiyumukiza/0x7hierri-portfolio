@@ -1,29 +1,55 @@
 import type { Metadata } from "next";
+import { Rss } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getSeoMetadata } from "@/lib/seo";
 import BlogSearchList from "@/components/site/BlogSearchList";
-import SectionHeader from "@/components/site/SectionHeader";
 
 export async function generateMetadata(): Promise<Metadata> {
-  return getSeoMetadata("blog");
+  const metadata = await getSeoMetadata("blog");
+
+  return {
+    ...metadata,
+    alternates: {
+      ...metadata.alternates,
+      types: { "application/rss+xml": "/blog/rss.xml" },
+    },
+  };
 }
 
-export default async function BlogPage() {
+type BlogPageProps = {
+  searchParams?: { tag?: string };
+};
+
+export default async function BlogPage({ searchParams }: BlogPageProps) {
   const supabase = createClient();
   const { data, error } = await supabase
     .from("blog_posts")
-    .select("*")
+    .select("id,title,slug,excerpt,thumbnail_url,tags,published_at,reading_time,featured")
     .eq("status", "published")
     .order("published_at", { ascending: false });
 
-  if (error) {
-    return null;
-  }
+  const posts = data ?? [];
 
   return (
-    <section style={{ maxWidth: "760px", margin: "0 auto", padding: "2.5rem 2rem" }}>
-      <SectionHeader title="blog" />
-      <BlogSearchList posts={data ?? []} />
+    <section className="blog-page">
+      <header className="blog-page-header">
+        <p className="blog-page-kicker">writing</p>
+        <h1 className="blog-page-title">Blog</h1>
+        <p className="blog-page-subtitle">
+          Notes on security research, engineering and the things I am currently learning.
+        </p>
+
+        <a href="/blog/rss.xml" className="blog-page-feed">
+          <Rss size={12} aria-hidden="true" />
+          Subscribe via RSS
+        </a>
+      </header>
+
+      {error ? (
+        <p className="blog-page-error">Posts could not be loaded right now. Please try again shortly.</p>
+      ) : (
+        <BlogSearchList posts={posts} initialTag={searchParams?.tag ?? ""} />
+      )}
     </section>
   );
 }

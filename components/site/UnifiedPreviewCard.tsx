@@ -1,5 +1,5 @@
-/* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
+import Thumbnail from "@/components/site/Thumbnail";
 
 type PreviewKind = "project" | "study" | "blog";
 
@@ -65,16 +65,14 @@ export default function UnifiedPreviewCard({
         </span>
       </div>
 
-      {imageUrl ? (
-        <img
-          src={imageUrl}
-          alt={title}
-          loading="lazy"
-          className="preview-image"
-        />
-      ) : (
-        <div className="preview-image preview-image-fallback" />
-      )}
+      <Thumbnail
+        src={imageUrl}
+        alt={title}
+        seed={title}
+        ratio="16/9"
+        label={badgeLabel}
+        radius={9}
+      />
 
       <h3 className="preview-title">{title}</h3>
 

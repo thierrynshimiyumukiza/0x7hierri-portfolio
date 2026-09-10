@@ -30,9 +30,9 @@ const tests: TestCase[] = [
     name: "headings",
     markdown: "# Heading 1\n\n## Heading 2\n\n### Heading 3",
     check(html) {
-      assert.match(html, /<h1[^>]*><a href="#heading-1"[^>]*>Heading 1<\/a><\/h1>/);
-      assert.match(html, /<h2[^>]*><a href="#heading-2"[^>]*>Heading 2<\/a><\/h2>/);
-      assert.match(html, /<h3[^>]*><a href="#heading-3"[^>]*>Heading 3<\/a><\/h3>/);
+      assert.match(html, /<h1 id="heading-1"[^>]*>Heading 1<a href="#heading-1"[^>]*>#<\/a><\/h1>/);
+      assert.match(html, /<h2 id="heading-2"[^>]*>Heading 2<a href="#heading-2"[^>]*>#<\/a><\/h2>/);
+      assert.match(html, /<h3 id="heading-3"[^>]*>Heading 3<a href="#heading-3"[^>]*>#<\/a><\/h3>/);
     },
   },
   {
@@ -47,10 +47,46 @@ const tests: TestCase[] = [
     name: "inline code and fenced code",
     markdown: "Inline `code` sample.\n\n```ts\nconst value: number = 1;\n```",
     check(html) {
-      assert.match(html, /Inline <code class="rounded [^"]*">code<\/code> sample\./);
+      assert.match(html, /Inline <code class="md-inline-code">code<\/code> sample\./);
       assert.equal(countMatches(html, /<pre\b/g), 1);
-      assert.match(html, /language-ts/);
+      assert.match(html, /<span class="code-block-language">TypeScript<\/span>/);
       assert.doesNotMatch(html, /```/);
+    },
+  },
+  {
+    name: "assembly code fence aliases",
+    markdown: [
+      "```asm",
+      "mov eax, 1",
+      "```",
+      "",
+      "```x86-64",
+      "mov rax, 1",
+      "```",
+      "",
+      "```arm",
+      "MOV R0, #1",
+      "```",
+      "",
+      "```6502",
+      "LDA #$01",
+      "```",
+      "",
+      "```avr",
+      "LDI R16, 1",
+      "```",
+      "",
+      "```webassembly",
+      "(module)",
+      "```",
+    ].join("\n"),
+    check(html) {
+      assert.match(html, /<span class="code-block-language">x86 asm<\/span>/);
+      assert.match(html, /<span class="code-block-language">ARM asm<\/span>/);
+      assert.match(html, /<span class="code-block-language">6502 asm<\/span>/);
+      assert.match(html, /<span class="code-block-language">AVR asm<\/span>/);
+      assert.match(html, /<span class="code-block-language">WebAssembly<\/span>/);
+      assert.doesNotMatch(html, /no highlighter/);
     },
   },
   {
@@ -105,7 +141,7 @@ const tests: TestCase[] = [
     check(html) {
       assert.match(html, /href="#start"/);
       assert.match(html, /href="#next"/);
-      assert.match(html, /<details><summary>Show more<\/summary>Hidden content<\/details>/);
+      assert.match(html, /<details class="md-details"><summary class="md-summary">Show more<\/summary>Hidden content<\/details>/);
       assert.match(html, /<aside[^>]*border-\[--accent-amber\][^>]*>/);
       assert.match(html, /Proceed carefully/);
     },
@@ -212,7 +248,7 @@ const tests: TestCase[] = [
     check(html) {
       assert.equal(countMatches(html, /<img\b/g), 1);
       assert.match(html, /src="https:\/\/example.com\/path\/image%20test\(1\)\.png"/);
-      assert.match(html, /<span class="mt-2 block text-sm text-\[--text-dim\]">Caption<\/span>/);
+      assert.match(html, /<span class="md-figure-caption">Caption<\/span>/);
     },
   },
   {
@@ -245,12 +281,107 @@ const tests: TestCase[] = [
       "![diagram](https://example.com/diagram.png)",
     ].join("\n"),
     check(html) {
-      assert.match(html, /<h1[^>]*><a href="#intro"[^>]*>Intro<\/a><\/h1>/);
-      assert.match(html, /<code class="rounded [^"]*">inline<\/code>/);
-      assert.match(html, /language-python/);
+      assert.match(html, /<h1 id="intro"[^>]*>Intro<a href="#intro"[^>]*>#<\/a><\/h1>/);
+      assert.match(html, /<code class="md-inline-code">inline<\/code>/);
+      assert.match(html, /<span class="code-block-language">Python<\/span>/);
       assert.match(html, /<blockquote\b/);
       assert.match(html, /<table\b/);
       assert.match(html, /<img[^>]*src="https:\/\/example\.com\/diagram\.png"/);
+    },
+  },
+  {
+    name: "common language aliases resolve to a real highlighter",
+    markdown: [
+      "```js",
+      "const a = 1;",
+      "```",
+      "",
+      "```py",
+      "a = 1",
+      "```",
+      "",
+      "```sh",
+      "ls -la",
+      "```",
+      "",
+      "```html",
+      "<p>hi</p>",
+      "```",
+      "",
+      "```c++",
+      "int main() {}",
+      "```",
+      "",
+      "```yml",
+      "key: value",
+      "```",
+      "",
+      "```console",
+      "$ whoami",
+      "```",
+    ].join("\n"),
+    check(html) {
+      assert.match(html, /<span class="code-block-language">JavaScript<\/span>/);
+      assert.match(html, /<span class="code-block-language">Python<\/span>/);
+      assert.match(html, /<span class="code-block-language">Bash<\/span>/);
+      assert.match(html, /<span class="code-block-language">HTML<\/span>/);
+      assert.match(html, /<span class="code-block-language">C\+\+<\/span>/);
+      assert.match(html, /<span class="code-block-language">YAML<\/span>/);
+      assert.match(html, /<span class="code-block-language">Console<\/span>/);
+      // None of these may fall through to the "unsupported language" badge.
+      assert.doesNotMatch(html, /no highlighter/);
+    },
+  },
+  {
+    name: "unknown languages still render, flagged as unhighlighted",
+    markdown: "```wibble\nsome text\n```",
+    check(html) {
+      assert.match(html, /<span class="code-block-language">Wibble<\/span>/);
+      assert.match(html, /no highlighter/);
+      assert.match(html, /some text/);
+    },
+  },
+  {
+    // The highlighter runs in the browser only. Server output must therefore be
+    // the plain stand-in for every fence, labelled or not, or hydration diverges.
+    name: "fences render a plain server-side block, whatever the language",
+    markdown: [
+      "```",
+      "unlabelled fence",
+      "```",
+      "",
+      "```python",
+      "print(1)",
+      "```",
+      "",
+      "```wibble",
+      "x",
+      "```",
+    ].join("\n"),
+    check(html) {
+      assert.equal(countMatches(html, /<pre class="code-block-plain">/g), 3);
+      assert.match(html, /unlabelled fence/);
+      assert.match(html, /<span class="code-block-language">Code<\/span>/);
+    },
+  },
+  {
+    name: "code fence metadata survives rehype-raw",
+    markdown: '```ts title="src/app.ts" {2}\nconst a = 1;\nconst b = 2;\n```',
+    check(html) {
+      assert.match(html, /<span class="code-block-filename">src\/app\.ts<\/span>/);
+      assert.match(html, /aria-label="TypeScript code, src\/app\.ts"/);
+    },
+  },
+  {
+    name: "heading ids match the generated table of contents",
+    markdown: "[TOC]\n\n## First Section\n\n## Second: Section!\n\n## First Section",
+    check(html) {
+      assert.match(html, /href="#first-section"/);
+      assert.match(html, /href="#second-section"/);
+      assert.match(html, /href="#first-section-1"/);
+      assert.match(html, /<h2 id="first-section"/);
+      assert.match(html, /<h2 id="second-section"/);
+      assert.match(html, /<h2 id="first-section-1"/);
     },
   },
   {

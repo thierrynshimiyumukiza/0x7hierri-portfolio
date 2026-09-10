@@ -267,24 +267,10 @@ html[data-preview="compact"] .preview-card .preview-progress-track {
   border: 0.5px solid var(--border);
 }
 
-.admin-shell .admin-sidebar {
-  width: 100%;
-  border-right: none;
-  border-bottom: 0.5px solid var(--border-muted);
-}
-
-@media (min-width: 1024px) {
-  .admin-shell .admin-sidebar {
-    width: 200px;
-    border-bottom: none;
-    border-right: 0.5px solid var(--border-muted);
-  }
-}
-
 .admin-shell .surface-card {
   background: var(--bg-surface);
   border: 0.5px solid var(--border);
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 1.2rem;
 }
 
@@ -298,15 +284,16 @@ html[data-preview="compact"] .preview-card .preview-progress-track {
   display: block;
 }
 
+/* Legacy admin pages still use bare inputs; the CMS pages opt in via .admin-input. */
 .admin-shell input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]),
 .admin-shell textarea,
 .admin-shell select {
   background: var(--bg-surface);
   border: 0.5px solid var(--border);
-  border-radius: 6px;
+  border-radius: 8px;
   color: var(--text-body);
   font-size: 13px;
-  padding: 8px 12px;
+  padding: 9px 12px;
   width: 100%;
   outline: none;
   font-family: inherit;
@@ -315,25 +302,25 @@ html[data-preview="compact"] .preview-card .preview-progress-track {
 .admin-shell input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]):focus,
 .admin-shell textarea:focus,
 .admin-shell select:focus {
-  border: 0.5px solid var(--accent-blue);
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.16);
 }
 
 .admin-shell form.surface-card > button,
 .admin-shell form.surface-card button[type="submit"] {
   background: var(--accent-blue);
-  color: var(--bg-base);
+  color: var(--text-on-accent);
   font-size: 12.5px;
-  padding: 8px 20px;
-  border-radius: 6px;
+  padding: 9px 20px;
+  border-radius: 8px;
   border: none;
   cursor: pointer;
   font-weight: 500;
+  justify-self: start;
 }
 
-.admin-shell section + section {
-  border-top: 0.5px solid var(--border-muted);
-  margin-top: 2rem;
-  padding-top: 2rem;
+.admin-shell .surface-card + .surface-card {
+  margin-top: 1rem;
 }
 
 .hljs {

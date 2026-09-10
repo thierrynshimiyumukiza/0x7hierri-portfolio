@@ -2,19 +2,14 @@
 const nextConfig = {
   outputFileTracing: true,
   images: {
+    // Thumbnails are pasted into the CMS from anywhere, so an allowlist of hosts
+    // turned unknown domains into hard runtime errors instead of a broken image.
     remotePatterns: [
-      { protocol: "https", hostname: "avatars.mds.yandex.net" },
-      { protocol: "https", hostname: "images.pexels.com" },
-      { protocol: "https", hostname: "images.unsplash.com" },
-      { protocol: "https", hostname: "www.bracu.ac.bd" },
-      { protocol: "https", hostname: "bracu.ac.bd" },
-      { protocol: "https", hostname: "res.cloudinary.com" },
-      {
-        protocol: "https",
-        hostname: "*.supabase.co",
-        pathname: "/storage/v1/object/public/**",
-      },
+      { protocol: "https", hostname: "**" },
+      { protocol: "http", hostname: "localhost" },
     ],
+    formats: ["image/avif", "image/webp"],
+    deviceSizes: [360, 480, 640, 828, 1080, 1280, 1600, 1920],
   },
   eslint: {
     ignoreDuringBuilds: true,

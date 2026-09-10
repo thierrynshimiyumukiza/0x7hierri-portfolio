@@ -1,8 +1,9 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import React from "react";
-import { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { X, ZoomIn } from "lucide-react";
+import { normalizeImageUrl } from "@/lib/images";
 
 type ImageZoomProps = {
   src: string;
@@ -10,25 +11,40 @@ type ImageZoomProps = {
   title?: string;
 };
 
-function toRenderableSrc(value: string): string {
-  const normalized = value.trim();
-  if (!normalized) return "";
-
-  // react-markdown already normalizes URLs; re-encoding here can double-encode
-  // existing %XX sequences and break otherwise valid image links.
-  if (/\s/.test(normalized)) {
-    return normalized.replace(/\s/g, "%20");
-  }
-
-  return normalized;
-}
-
 export default function ImageZoom({ src, alt, title }: ImageZoomProps) {
   const [open, setOpen] = useState(false);
   const [failed, setFailed] = useState(false);
-  const normalizedSrc = src.trim();
-  const renderableSrc = toRenderableSrc(normalizedSrc);
+  const imageRef = useRef<HTMLImageElement | null>(null);
+
+  const renderableSrc = useMemo(() => normalizeImageUrl(src), [src]);
   const caption = useMemo(() => (title?.trim() || alt?.trim() || "").trim(), [alt, title]);
+
+  const close = useCallback(() => setOpen(false), []);
+
+  useEffect(() => {
+    // A cached image finishes loading before hydration attaches onError.
+    const element = imageRef.current;
+    if (element?.complete && element.naturalWidth === 0) {
+      setFailed(true);
+    }
+  }, [renderableSrc]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") close();
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [open, close]);
 
   if (!renderableSrc) {
     return null;
@@ -36,36 +52,42 @@ export default function ImageZoom({ src, alt, title }: ImageZoomProps) {
 
   return (
     <>
-      <span className="my-6 block">
+      <span className="md-figure">
         {!failed ? (
-          <button type="button" onClick={() => setOpen(true)} className="block w-full">
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="md-figure-button"
+            aria-label={caption ? `Enlarge image: ${caption}` : "Enlarge image"}
+          >
             <img
+              ref={imageRef}
               src={renderableSrc}
               alt={alt}
               loading="lazy"
+              decoding="async"
               onError={() => setFailed(true)}
-              className="h-auto max-h-[70vh] w-full rounded-lg border border-[--border] object-contain"
+              className="md-figure-image"
             />
+            <span className="md-figure-zoom" aria-hidden="true">
+              <ZoomIn size={14} />
+            </span>
           </button>
         ) : (
-          <div className="rounded-lg border border-[--border] bg-[--bg-surface] px-4 py-3 text-sm text-[--text-dim]">
-            Failed to load image: {normalizedSrc}
-          </div>
+          <span className="md-figure-error">Image unavailable{caption ? `: ${caption}` : ""}</span>
         )}
 
-        {caption ? <span className="mt-2 block text-sm text-[--text-dim]">{caption}</span> : null}
+        {caption ? <span className="md-figure-caption">{caption}</span> : null}
       </span>
 
       {open ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4"
-          onClick={() => setOpen(false)}
-        >
-          <div className="max-w-5xl" onClick={(event) => event.stopPropagation()}>
-            <img src={renderableSrc} alt={alt} loading="lazy" className="max-h-[85vh] max-w-full rounded-lg object-contain" />
-            {caption ? <p className="mt-2 text-center text-sm text-[--text-muted]">{caption}</p> : null}
+        <div role="dialog" aria-modal="true" aria-label={caption || "Image preview"} className="md-lightbox" onClick={close}>
+          <button type="button" className="md-lightbox-close" onClick={close} aria-label="Close image preview">
+            <X size={18} aria-hidden="true" />
+          </button>
+          <div className="md-lightbox-inner" onClick={(event) => event.stopPropagation()}>
+            <img src={renderableSrc} alt={alt} className="md-lightbox-image" />
+            {caption ? <p className="md-lightbox-caption">{caption}</p> : null}
           </div>
         </div>
       ) : null}

@@ -25,3 +25,11 @@ export function formatDateTime(value?: string | null): string {
 export function parseTags(tags?: string[] | null): string[] {
   return Array.isArray(tags) ? tags.filter(Boolean) : [];
 }
+
+/**
+ * Tags are stored inconsistently: some rows already carry a leading "#" from
+ * older imports, so rendering "#{tag}" produced "##kernel". Strip it once here.
+ */
+export function displayTag(tag: string): string {
+  return tag.trim().replace(/^#+/, "");
+}

@@ -8,8 +8,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test:markdown": "tsx scripts/markdown-regression.tsx",
-    "types:gen": "npx supabase gen types typescript --project-id ryqrokwumeyjtuyylaea --schema public > types/database.ts"
+    "test:markdown": "tsx --tsconfig tsconfig.scripts.json scripts/markdown-regression.tsx",
+    "types:gen": "npx supabase gen types typescript --project-id ryqrokwumeyjtuyylaea --schema public > types/database.ts",
+    "test:admin": "tsx --tsconfig tsconfig.scripts.json scripts/admin-render-check.tsx",
+    "test": "npm run test:markdown && npm run test:admin"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",

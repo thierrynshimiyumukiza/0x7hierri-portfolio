@@ -2,15 +2,10 @@
 
 import React, { useEffect, useState } from "react";
 import type { MermaidConfig } from "mermaid";
+import { useThemeMode, type ThemeMode } from "@/lib/use-theme-mode";
 
 interface MermaidProps {
   chart: string;
-}
-
-type ThemeMode = "light" | "dark";
-
-function getThemeMode(): ThemeMode {
-  return document.documentElement.dataset.theme === "light" ? "light" : "dark";
 }
 
 function createMermaidConfig(themeMode: ThemeMode): MermaidConfig {
@@ -59,19 +54,9 @@ function createMermaidConfig(themeMode: ThemeMode): MermaidConfig {
 }
 
 export default function Mermaid({ chart }: MermaidProps) {
-  const [themeMode, setThemeMode] = useState<ThemeMode>("dark");
+  const themeMode = useThemeMode();
   const [renderedSvg, setRenderedSvg] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const syncTheme = () => setThemeMode(getThemeMode());
-    const observer = new MutationObserver(syncTheme);
-
-    syncTheme();
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
-
-    return () => observer.disconnect();
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -128,9 +113,13 @@ export default function Mermaid({ chart }: MermaidProps) {
   }
 
   return (
-    <div
-      className="my-6 overflow-x-auto rounded-lg border border-[--border] bg-[--bg-surface] p-4 text-[--text-body] [&_svg]:mx-auto [&_svg]:block [&_svg]:h-auto [&_svg]:max-w-full"
-      dangerouslySetInnerHTML={{ __html: renderedSvg }}
-    />
+    <figure className="mermaid-figure">
+      <div
+        className="mermaid-surface"
+        role="img"
+        aria-label="Diagram"
+        dangerouslySetInnerHTML={{ __html: renderedSvg }}
+      />
+    </figure>
   );
 }

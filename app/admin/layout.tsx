@@ -1,8 +1,7 @@
 import type { ReactNode } from "react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import AdminSidebar from "@/components/admin/AdminSidebar";
-import AdminHeader from "@/components/admin/AdminHeader";
+import AdminShell from "@/components/admin/AdminShell";
 import AdminFormEnhancer from "@/components/admin/AdminFormEnhancer";
 import { createClient } from "@/lib/supabase/server";
 
@@ -12,10 +11,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
 
   const headerStore = headers();
   const hintedPath =
-    headerStore.get("x-pathname") ??
-    headerStore.get("next-url") ??
-    headerStore.get("referer") ??
-    "";
+    headerStore.get("x-pathname") ?? headerStore.get("next-url") ?? headerStore.get("referer") ?? "";
 
   const isLoginRoute = hintedPath.includes("/admin/login");
 
@@ -27,14 +23,18 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     return <>{children}</>;
   }
 
+  async function signOut() {
+    "use server";
+
+    const client = createClient();
+    await client.auth.signOut();
+    redirect("/admin/login");
+  }
+
   return (
-    <div className="admin-shell min-h-screen bg-[--bg-base] text-[--text-body] lg:grid lg:grid-cols-[200px_1fr]">
-      <AdminSidebar />
-      <div>
-        <AdminHeader />
-        <AdminFormEnhancer />
-        <main className="p-4 sm:p-6">{children}</main>
-      </div>
-    </div>
+    <AdminShell signOut={signOut} siteUrl={process.env.NEXT_PUBLIC_SITE_URL ?? "/"}>
+      <AdminFormEnhancer />
+      {children}
+    </AdminShell>
   );
 }
