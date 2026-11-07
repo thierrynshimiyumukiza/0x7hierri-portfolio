@@ -217,7 +217,7 @@ const tests: TestCase[] = [
       "```",
     ].join("\n"),
     check(html) {
-      assert.equal(countMatches(html, /Rendering diagram\.\.\./g), 9);
+      assert.equal(countMatches(html, /class="mermaid-loading"/g), 9);
       assert.doesNotMatch(html, /<pre\b/);
       assert.doesNotMatch(html, /language-mermaid/);
     },

@@ -1,10 +1,9 @@
-/* eslint-disable @next/next/no-img-element */
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { getSeoMetadata } from "@/lib/seo";
 import type { Tables } from "@/types/database";
-import SectionHeader from "@/components/site/SectionHeader";
 import CrossPageRecommendations from "@/components/site/CrossPageRecommendations";
+import ProjectsList from "@/components/site/ProjectsList";
 
 export async function generateMetadata(): Promise<Metadata> {
   return getSeoMetadata("projects");
@@ -14,7 +13,7 @@ export default async function ProjectsPage() {
   const supabase = createClient();
   const { data, error } = await supabase
     .from("projects")
-    .select("id,title,slug,description,thumbnail_url,tags,github_url,demo_url")
+    .select("id,title,slug,description,thumbnail_url,tags,github_url,demo_url,featured,created_at")
     .eq("status", "published")
     .order("sort_order", { ascending: true });
 
@@ -26,114 +25,37 @@ export default async function ProjectsPage() {
   const recommendationTags = projects.flatMap((project) => project.tags ?? []).slice(0, 12);
 
   return (
-    <section style={{ maxWidth: "760px", margin: "0 auto", padding: "2.5rem 2rem" }}>
-      <SectionHeader title="projects" />
-      <div style={{ display: "grid", gap: "12px" }}>
-        {projects.map((project) => (
-          <article id={project.slug} key={project.id} className="project-card" style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-            <div
-              style={{
-                width: "34px",
-                height: "34px",
-                borderRadius: "7px",
-                background: "var(--bg-base)",
-                border: "0.5px solid var(--border)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                marginBottom: "0.9rem",
-                color: "var(--accent-blue)",
-                fontFamily: "var(--font-mono), monospace",
-                fontSize: "10px",
-              }}
-            >
-              prj
-            </div>
-            {project.thumbnail_url ? (
-              <img
-                src={project.thumbnail_url}
-                alt={project.title}
-                loading="lazy"
-                style={{ width: "100%", height: "160px", objectFit: "cover", borderRadius: "7px", border: "0.5px solid var(--border)" }}
-              />
-            ) : null}
+    <div className="ui-wrap">
+      <section className="flex flex-col gap-[18px]" style={{ paddingTop: 72, paddingBottom: 36 }}>
+        <p className="ui-label">$ ls ./projects</p>
+        <h1 className="ui-h1">Projects</h1>
+        <p className="ui-lead">Tools, exploits and builds, each with what it does, how it&apos;s built and where to see it.</p>
+      </section>
 
-            <p style={{ fontSize: "13px", fontWeight: 500, color: "var(--text-primary)" }}>{project.title}</p>
-            {project.description ? <p style={{ fontSize: "11.5px", color: "var(--text-dim)", lineHeight: 1.6 }}>{project.description}</p> : null}
+      <section style={{ paddingBottom: 72 }}>
+        {projects.length > 0 ? (
+          <ProjectsList
+            projects={projects.map((project) => ({
+              id: project.id,
+              title: project.title,
+              slug: project.slug,
+              description: project.description ?? "",
+              thumbnailUrl: project.thumbnail_url ?? null,
+              tags: project.tags ?? [],
+              githubUrl: project.github_url ?? null,
+              demoUrl: project.demo_url ?? null,
+              featured: Boolean(project.featured),
+              createdAt: project.created_at ?? null,
+            }))}
+          />
+        ) : (
+          <div className="ui-card-dashed" style={{ padding: 32, color: "var(--text-muted)" }}>
+            No projects published yet.
+          </div>
+        )}
+      </section>
 
-            {(project.tags ?? []).length > 0 ? (
-              <div style={{ display: "flex", gap: "5px", flexWrap: "wrap" }}>
-                {(project.tags ?? []).map((tag, index) => {
-                  const tagStyle =
-                    index % 3 === 0
-                      ? { color: "var(--accent-blue)", background: "rgba(88,166,255,0.1)" }
-                      : index % 3 === 1
-                        ? { color: "var(--accent-purple)", background: "rgba(210,168,255,0.1)" }
-                        : { color: "var(--accent-green)", background: "rgba(63,185,80,0.1)" };
-
-                  return (
-                  <span
-                    key={`${project.id}-${tag}`}
-                    style={{
-                      fontSize: "9.5px",
-                      fontFamily: "var(--font-mono), monospace",
-                      padding: "2px 8px",
-                      borderRadius: "10px",
-                      display: "inline-block",
-                      ...tagStyle,
-                    }}
-                  >
-                    {tag}
-                  </span>
-                  );
-                })}
-              </div>
-            ) : null}
-
-            <div style={{ marginTop: "auto", display: "flex", flexWrap: "wrap", gap: "6px" }}>
-              {project.github_url ? (
-                <a
-                  href={project.github_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{
-                    border: "0.5px solid var(--border)",
-                    color: "var(--text-muted)",
-                    fontSize: "11px",
-                    borderRadius: "6px",
-                    padding: "4px 10px",
-                    textDecoration: "none",
-                    fontFamily: "var(--font-mono), monospace",
-                  }}
-                >
-                  code
-                </a>
-              ) : null}
-              {project.demo_url ? (
-                <a
-                  href={project.demo_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{
-                    background: "var(--accent-blue)",
-                    color: "var(--bg-base)",
-                    fontSize: "11px",
-                    borderRadius: "6px",
-                    padding: "4px 10px",
-                    textDecoration: "none",
-                    fontWeight: 500,
-                    fontFamily: "var(--font-mono), monospace",
-                  }}
-                >
-                  live
-                </a>
-              ) : null}
-            </div>
-          </article>
-        ))}
-      </div>
-
-      <CrossPageRecommendations title="From studies and blog" seedTags={recommendationTags} currentType="project" />
-    </section>
+      <CrossPageRecommendations title="Related writeups and studies" seedTags={recommendationTags} excludeType="project" limit={3} />
+    </div>
   );
 }

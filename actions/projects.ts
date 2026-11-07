@@ -1,5 +1,6 @@
 "use server";
 
+import { requireAdmin } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { generateSlug } from "@/lib/utils";
@@ -14,6 +15,7 @@ function normalizeSlugValue(value?: string | null, fallback = "project"): string
 }
 
 export async function createProject(data: Inserts<"projects">) {
+  await requireAdmin();
   const supabase = createAdminClient();
   const baseSlug = normalizeSlugValue(data.slug || data.title, "project");
   const normalizedStatus = data.status ?? "published";
@@ -47,6 +49,7 @@ export async function createProject(data: Inserts<"projects">) {
 }
 
 export async function updateProject(id: string, data: Updates<"projects">) {
+  await requireAdmin();
   const supabase = createAdminClient();
   const normalizedSlug =
     data.slug !== undefined
@@ -68,6 +71,7 @@ export async function updateProject(id: string, data: Updates<"projects">) {
 }
 
 export async function deleteProject(id: string) {
+  await requireAdmin();
   const supabase = createAdminClient();
   const { error } = await supabase.from("projects").delete().eq("id", id);
   if (error) throw new Error(error.message);

@@ -22,9 +22,9 @@ export default async function SiteLayout({ children }: { children: ReactNode }) 
   const safeItems = error ? [] : items;
 
   return (
-    <div className="site-shell min-h-screen bg-[--bg-base] text-[--text-body]">
+    <div className="site-shell ui-page flex min-h-screen flex-col bg-[--bg-base]">
       <Navbar items={safeItems} />
-      <main>{children}</main>
+      <main className="flex-1">{children}</main>
       <Footer />
     </div>
   );

@@ -11,6 +11,7 @@ import TableOfContents from "@/components/site/markdown/TableOfContents";
 import ArticleToolbar from "@/components/site/markdown/ArticleToolbar";
 import Thumbnail from "@/components/site/Thumbnail";
 import type { Tables } from "@/types/database";
+import { releasedFilter } from "@/lib/publishing";
 
 type BlogPostPageProps = {
   params: {
@@ -32,6 +33,7 @@ async function findPublishedPost(rawSlug: string): Promise<PostRow | null> {
     .from("blog_posts")
     .select("*")
     .eq("status", "published")
+    .or(releasedFilter())
     .eq("slug", requestedSlug)
     .maybeSingle();
 
@@ -42,6 +44,7 @@ async function findPublishedPost(rawSlug: string): Promise<PostRow | null> {
     .from("blog_posts")
     .select("*")
     .eq("status", "published")
+    .or(releasedFilter())
     .order("published_at", { ascending: false })
     .limit(400);
 
@@ -99,6 +102,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
     .from("blog_posts")
     .select("id,title,slug,excerpt,thumbnail_url,published_at,reading_time,tags")
     .eq("status", "published")
+    .or(releasedFilter())
     .order("published_at", { ascending: false })
     .limit(400);
 
@@ -155,7 +159,8 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
       <script
         type="application/ld+json"
         // eslint-disable-next-line react/no-danger
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        // "<" is escaped so a title containing "</script>" cannot close the tag early.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
       />
 
       <div className="article-shell">

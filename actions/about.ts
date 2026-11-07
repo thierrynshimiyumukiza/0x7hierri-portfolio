@@ -1,11 +1,13 @@
 "use server";
 
+import { requireAdmin } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getMissingTableHelpMessage, isMissingTableError } from "@/lib/supabase/errors";
 import type { Inserts, Updates } from "@/types/database";
 
 export async function updateAboutSettings(id: string, data: Updates<"about_settings">) {
+  await requireAdmin();
   const supabase = createAdminClient();
   const { error } = await supabase.from("about_settings").update(data).eq("id", id);
   if (error) throw new Error(error.message);
@@ -15,6 +17,7 @@ export async function updateAboutSettings(id: string, data: Updates<"about_setti
 }
 
 export async function createTimelineItem(data: Inserts<"career_timeline">) {
+  await requireAdmin();
   const supabase = createAdminClient();
   const { error } = await supabase.from("career_timeline").insert(data);
   if (error) throw new Error(error.message);
@@ -24,6 +27,7 @@ export async function createTimelineItem(data: Inserts<"career_timeline">) {
 }
 
 export async function updateTimelineItem(id: string, data: Updates<"career_timeline">) {
+  await requireAdmin();
   const supabase = createAdminClient();
   const { error } = await supabase.from("career_timeline").update(data).eq("id", id);
   if (error) throw new Error(error.message);
@@ -33,6 +37,7 @@ export async function updateTimelineItem(id: string, data: Updates<"career_timel
 }
 
 export async function deleteTimelineItem(id: string) {
+  await requireAdmin();
   const supabase = createAdminClient();
   const { error } = await supabase.from("career_timeline").delete().eq("id", id);
   if (error) throw new Error(error.message);
@@ -42,6 +47,7 @@ export async function deleteTimelineItem(id: string) {
 }
 
 export async function createCertification(data: Inserts<"certifications">) {
+  await requireAdmin();
   const supabase = createAdminClient();
   const { error } = await supabase.from("certifications").insert(data);
   if (error) throw new Error(error.message);
@@ -51,6 +57,7 @@ export async function createCertification(data: Inserts<"certifications">) {
 }
 
 export async function updateCertification(id: string, data: Updates<"certifications">) {
+  await requireAdmin();
   const supabase = createAdminClient();
   const { error } = await supabase.from("certifications").update(data).eq("id", id);
   if (error) throw new Error(error.message);
@@ -60,6 +67,7 @@ export async function updateCertification(id: string, data: Updates<"certificati
 }
 
 export async function deleteCertification(id: string) {
+  await requireAdmin();
   const supabase = createAdminClient();
   const { error } = await supabase.from("certifications").delete().eq("id", id);
   if (error) throw new Error(error.message);
@@ -69,6 +77,7 @@ export async function deleteCertification(id: string) {
 }
 
 export async function createEducationEntry(data: Inserts<"education_entries">) {
+  await requireAdmin();
   const supabase = createAdminClient();
   const { error } = await supabase.from("education_entries").insert(data);
   if (error) {
@@ -83,6 +92,7 @@ export async function createEducationEntry(data: Inserts<"education_entries">) {
 }
 
 export async function updateEducationEntry(id: string, data: Updates<"education_entries">) {
+  await requireAdmin();
   const supabase = createAdminClient();
   const { error } = await supabase.from("education_entries").update(data).eq("id", id);
   if (error) {
@@ -97,6 +107,7 @@ export async function updateEducationEntry(id: string, data: Updates<"education_
 }
 
 export async function deleteEducationEntry(id: string) {
+  await requireAdmin();
   const supabase = createAdminClient();
   const { error } = await supabase.from("education_entries").delete().eq("id", id);
   if (error) {
@@ -153,37 +164,46 @@ async function deleteAboutRow(table: string, id: string) {
 }
 
 export async function createAboutFocusArea(data: AboutCollectionPayload) {
+  await requireAdmin();
   await insertAboutRow("about_focus_areas", data);
 }
 
 export async function updateAboutFocusArea(id: string, data: AboutCollectionPayload) {
+  await requireAdmin();
   await updateAboutRow("about_focus_areas", id, data);
 }
 
 export async function deleteAboutFocusArea(id: string) {
+  await requireAdmin();
   await deleteAboutRow("about_focus_areas", id);
 }
 
 export async function createAboutInterest(data: AboutCollectionPayload) {
+  await requireAdmin();
   await insertAboutRow("about_interests", data);
 }
 
 export async function updateAboutInterest(id: string, data: AboutCollectionPayload) {
+  await requireAdmin();
   await updateAboutRow("about_interests", id, data);
 }
 
 export async function deleteAboutInterest(id: string) {
+  await requireAdmin();
   await deleteAboutRow("about_interests", id);
 }
 
 export async function createAboutSkillGroup(data: AboutSkillGroupPayload) {
+  await requireAdmin();
   await insertAboutRow("about_skill_groups", data);
 }
 
 export async function updateAboutSkillGroup(id: string, data: AboutSkillGroupPayload) {
+  await requireAdmin();
   await updateAboutRow("about_skill_groups", id, data);
 }
 
 export async function deleteAboutSkillGroup(id: string) {
+  await requireAdmin();
   await deleteAboutRow("about_skill_groups", id);
 }

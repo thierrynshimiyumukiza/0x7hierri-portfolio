@@ -270,25 +270,28 @@ create trigger set_updated_at_study_categories before update on public.study_cat
 create trigger set_updated_at_study_entries before update on public.study_entries for each row execute function public.set_updated_at();
 create trigger set_updated_at_education_entries before update on public.education_entries for each row execute function public.set_updated_at();
 
--- Local/dev-friendly access model (you can tighten later)
-alter table public.hero_settings disable row level security;
-alter table public.profile disable row level security;
-alter table public.about_settings disable row level security;
-alter table public.footer_settings disable row level security;
-alter table public.seo_settings disable row level security;
-alter table public.navigation disable row level security;
-alter table public.statistics disable row level security;
-alter table public.projects disable row level security;
-alter table public.blog_posts disable row level security;
-alter table public.study_categories disable row level security;
-alter table public.study_entries disable row level security;
-alter table public.study_media disable row level security;
-alter table public.media_library disable row level security;
-alter table public.career_timeline disable row level security;
-alter table public.certifications disable row level security;
-alter table public.education_entries disable row level security;
-alter table public.tags disable row level security;
+-- Public roles read; only the service role (used by the CMS behind requireAdmin) writes.
+-- Read policies live in supabase/fixes/2026-10-17-enable-rls.sql; run it after this file.
+alter table public.hero_settings enable row level security;
+alter table public.profile enable row level security;
+alter table public.about_settings enable row level security;
+alter table public.footer_settings enable row level security;
+alter table public.seo_settings enable row level security;
+alter table public.navigation enable row level security;
+alter table public.statistics enable row level security;
+alter table public.projects enable row level security;
+alter table public.blog_posts enable row level security;
+alter table public.study_categories enable row level security;
+alter table public.study_entries enable row level security;
+alter table public.study_media enable row level security;
+alter table public.media_library enable row level security;
+alter table public.career_timeline enable row level security;
+alter table public.certifications enable row level security;
+alter table public.education_entries enable row level security;
+alter table public.tags enable row level security;
 
 grant usage on schema public to anon, authenticated, service_role;
-grant select, insert, update, delete on all tables in schema public to anon, authenticated, service_role;
-alter default privileges in schema public grant select, insert, update, delete on tables to anon, authenticated, service_role;
+grant select on all tables in schema public to anon, authenticated;
+grant select, insert, update, delete on all tables in schema public to service_role;
+alter default privileges in schema public grant select on tables to anon, authenticated;
+alter default privileges in schema public grant select, insert, update, delete on tables to service_role;

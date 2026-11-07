@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, Moon, Sun, X } from "lucide-react";
+import SiteSearch from "@/components/site/SiteSearch";
 
 interface NavItem {
   label: string;
@@ -61,70 +62,45 @@ export default function Navbar({ items }: { items: NavItem[] }) {
     });
   };
 
+  const isActive = (url: string) => (url === "/" ? pathname === "/" : pathname === url || pathname.startsWith(`${url}/`));
+
+  const renderLink = (item: NavItem) =>
+    item.isExternal ? (
+      <a key={item.url} href={item.url} target="_blank" rel="noreferrer">
+        {item.label.toLowerCase()}
+      </a>
+    ) : (
+      <Link key={item.url} href={item.url} aria-current={isActive(item.url) ? "page" : undefined}>
+        {item.label.toLowerCase()}
+      </Link>
+    );
+
   return (
-    <nav
-      className="site-navbar sticky top-0 z-50 border-b backdrop-blur"
-      style={{ borderColor: "var(--border-muted)", backgroundColor: "var(--bg-base)" }}
-    >
-      <div className="mx-auto flex w-full max-w-[1040px] items-center justify-between gap-2 px-4 py-3 sm:px-6 lg:px-8">
-        <Link
-          href="/"
-          className="shrink-0 font-mono text-[13px] font-medium tracking-[-0.02em] sm:text-[14px]"
-          style={{ color: "var(--accent-blue)" }}
-        >
-          <span style={{ color: "var(--text-faint)" }}>~/</span>
-          0x7hierri
+    <nav className="ui-nav site-navbar" aria-label="Main">
+      <div className="ui-wrap ui-nav-inner">
+        <Link href="/" className="ui-brand shrink-0">
+          <span style={{ color: "var(--text-dim)" }}>~/</span>0x7hierri
+          <span className="ui-brand-caret" aria-hidden="true">
+            _
+          </span>
         </Link>
 
-        <div className="hidden min-w-0 flex-1 items-center justify-center gap-4 overflow-x-auto px-2 md:flex lg:gap-5">
-          {navItems.map((item) => {
-            const isActive = pathname === item.url;
-
-            if (item.isExternal) {
-              return (
-                <a
-                  key={item.url}
-                  href={item.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="whitespace-nowrap font-mono text-[12px] tracking-[0.02em] transition-colors"
-                  style={{ color: "var(--text-muted)" }}
-                >
-                  {item.label.toLowerCase()}
-                </a>
-              );
-            }
-
-            return (
-              <Link
-                key={item.url}
-                href={item.url}
-                className="whitespace-nowrap font-mono text-[12px] tracking-[0.02em] transition-colors"
-                style={{ color: isActive ? "var(--text-primary)" : "var(--text-muted)" }}
-              >
-                {item.label.toLowerCase()}
-              </Link>
-            );
-          })}
-        </div>
+        <div className="ui-nav-links ui-hide-mobile min-w-0 overflow-x-auto">{navItems.map(renderLink)}</div>
 
         <div className="flex shrink-0 items-center gap-2">
+          <SiteSearch />
           <button
             type="button"
             aria-label={theme === "dark" ? "Switch to light mode" : "Switch to night mode"}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-md border transition-colors"
-            style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}
+            className="ui-btn"
+            style={{ padding: "0 13px" }}
             onClick={toggleTheme}
           >
-            {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+            {theme === "dark" ? <Sun size={16} aria-hidden="true" /> : <Moon size={16} aria-hidden="true" />}
           </button>
 
-          <Link
-            href="/contact"
-            className="hidden whitespace-nowrap rounded-md border px-3.5 py-1.5 font-mono text-[11.5px] transition-colors md:inline-flex"
-            style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}
-          >
-            contact me
+          <Link href="/contact" className="ui-btn ui-hide-mobile" style={{ fontSize: 14 }}>
+            contact
           </Link>
 
           <button
@@ -132,57 +108,24 @@ export default function Navbar({ items }: { items: NavItem[] }) {
             aria-expanded={isOpen}
             aria-controls="mobile-site-menu"
             aria-label={isOpen ? "Close navigation menu" : "Open navigation menu"}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-md border transition-colors md:hidden"
-            style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}
+            className="ui-btn ui-hide-desktop"
+            style={{ padding: "0 13px" }}
             onClick={() => setIsOpen((prev) => !prev)}
           >
-            {isOpen ? <X size={16} /> : <Menu size={16} />}
+            {isOpen ? <X size={16} aria-hidden="true" /> : <Menu size={16} aria-hidden="true" />}
           </button>
         </div>
       </div>
 
       <div
         id="mobile-site-menu"
-        className={`border-t px-4 py-3 sm:px-6 md:hidden ${isOpen ? "block" : "hidden"}`}
-        style={{ borderColor: "var(--border-muted)", backgroundColor: "var(--bg-base)" }}
+        className={`ui-mobile-menu ui-hide-desktop ${isOpen ? "block" : "hidden"}`}
+        style={{ borderTop: "1px solid var(--border-muted)" }}
       >
-        <div className="mx-auto flex w-full max-w-[1040px] flex-col gap-1">
-          {navItems.map((item) => {
-            const isActive = pathname === item.url;
-
-            if (item.isExternal) {
-              return (
-                <a
-                  key={item.url}
-                  href={item.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="rounded-md px-2.5 py-2 font-mono text-[12.5px] tracking-[0.02em] transition-colors"
-                  style={{ color: "var(--text-muted)" }}
-                >
-                  {item.label.toLowerCase()}
-                </a>
-              );
-            }
-
-            return (
-              <Link
-                key={item.url}
-                href={item.url}
-                className="rounded-md px-2.5 py-2 font-mono text-[12.5px] tracking-[0.02em] transition-colors"
-                style={{ color: isActive ? "var(--text-primary)" : "var(--text-muted)" }}
-              >
-                {item.label.toLowerCase()}
-              </Link>
-            );
-          })}
-
-          <Link
-            href="/contact"
-            className="mt-1 rounded-md border px-2.5 py-2 font-mono text-[12px] transition-colors"
-            style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}
-          >
-            contact me
+        <div className="ui-wrap flex flex-col gap-1 py-3">
+          {navItems.map(renderLink)}
+          <Link href="/contact" aria-current={isActive("/contact") ? "page" : undefined}>
+            contact
           </Link>
         </div>
       </div>

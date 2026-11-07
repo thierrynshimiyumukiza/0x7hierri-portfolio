@@ -1,5 +1,6 @@
 "use server";
 
+import { requireAdmin } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { calculateReadingTime, generateSlug } from "@/lib/utils";
@@ -14,6 +15,7 @@ function normalizeSlugValue(value?: string | null, fallback = "item"): string {
 }
 
 export async function createStudyCategory(data: Inserts<"study_categories">) {
+  await requireAdmin();
   const supabase = createAdminClient();
   const baseSlug = normalizeSlugValue(data.slug || data.title, "category");
   const normalizedStatus = data.status ?? "published";
@@ -47,6 +49,7 @@ export async function createStudyCategory(data: Inserts<"study_categories">) {
 }
 
 export async function updateStudyCategory(id: string, data: Updates<"study_categories">) {
+  await requireAdmin();
   const supabase = createAdminClient();
   const normalizedSlug =
     data.slug !== undefined
@@ -68,6 +71,7 @@ export async function updateStudyCategory(id: string, data: Updates<"study_categ
 }
 
 export async function deleteStudyCategory(id: string) {
+  await requireAdmin();
   const supabase = createAdminClient();
   const { error } = await supabase.from("study_categories").delete().eq("id", id);
   if (error) throw new Error(error.message);
@@ -78,6 +82,7 @@ export async function deleteStudyCategory(id: string) {
 }
 
 export async function createStudyEntry(data: Inserts<"study_entries">) {
+  await requireAdmin();
   const supabase = createAdminClient();
   const baseSlug = normalizeSlugValue(data.slug || data.title, "entry");
   const normalizedStatus = data.status ?? "published";
@@ -117,6 +122,7 @@ export async function createStudyEntry(data: Inserts<"study_entries">) {
 }
 
 export async function updateStudyEntry(id: string, data: Updates<"study_entries">) {
+  await requireAdmin();
   const supabase = createAdminClient();
   const shouldBackfillPublishedAt = data.status === "published" && data.published_at === null;
   const normalizedSlug =
@@ -141,6 +147,7 @@ export async function updateStudyEntry(id: string, data: Updates<"study_entries"
 }
 
 export async function deleteStudyEntry(id: string) {
+  await requireAdmin();
   const supabase = createAdminClient();
   const { error } = await supabase.from("study_entries").delete().eq("id", id);
   if (error) throw new Error(error.message);
@@ -151,6 +158,7 @@ export async function deleteStudyEntry(id: string) {
 }
 
 export async function createStudyMedia(data: Inserts<"study_media">) {
+  await requireAdmin();
   const supabase = createAdminClient();
   const { error } = await supabase.from("study_media").insert(data);
   if (error) throw new Error(error.message);
@@ -160,6 +168,7 @@ export async function createStudyMedia(data: Inserts<"study_media">) {
 }
 
 export async function deleteStudyMedia(id: string) {
+  await requireAdmin();
   const supabase = createAdminClient();
   const { error } = await supabase.from("study_media").delete().eq("id", id);
   if (error) throw new Error(error.message);

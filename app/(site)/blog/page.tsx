@@ -3,6 +3,7 @@ import { Rss } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getSeoMetadata } from "@/lib/seo";
 import BlogSearchList from "@/components/site/BlogSearchList";
+import { releasedFilter } from "@/lib/publishing";
 
 export async function generateMetadata(): Promise<Metadata> {
   const metadata = await getSeoMetadata("blog");
@@ -26,30 +27,32 @@ export default async function BlogPage({ searchParams }: BlogPageProps) {
     .from("blog_posts")
     .select("id,title,slug,excerpt,thumbnail_url,tags,published_at,reading_time,featured")
     .eq("status", "published")
+    .or(releasedFilter())
     .order("published_at", { ascending: false });
 
   const posts = data ?? [];
 
   return (
-    <section className="blog-page">
-      <header className="blog-page-header">
-        <p className="blog-page-kicker">writing</p>
-        <h1 className="blog-page-title">Blog</h1>
-        <p className="blog-page-subtitle">
-          Notes on security research, engineering and the things I am currently learning.
-        </p>
+    <div className="ui-wrap">
+      <section className="flex flex-col gap-4" style={{ paddingTop: 72, paddingBottom: 28 }}>
+        <p className="ui-label">$ ls ./blog</p>
+        <h1 className="ui-h1">Writeups</h1>
+        <p className="ui-lead">Notes on security research, engineering and the things I am currently learning.</p>
+        <div>
+          <a href="/blog/rss.xml" className="ui-btn ui-btn-sm">
+            <Rss size={13} aria-hidden="true" />
+            Subscribe via RSS
+          </a>
+        </div>
+      </section>
 
-        <a href="/blog/rss.xml" className="blog-page-feed">
-          <Rss size={12} aria-hidden="true" />
-          Subscribe via RSS
-        </a>
-      </header>
-
-      {error ? (
-        <p className="blog-page-error">Posts could not be loaded right now. Please try again shortly.</p>
-      ) : (
-        <BlogSearchList posts={posts} initialTag={searchParams?.tag ?? ""} />
-      )}
-    </section>
+      <section style={{ paddingBottom: 96 }}>
+        {error ? (
+          <p className="blog-page-error">Posts could not be loaded right now. Please try again shortly.</p>
+        ) : (
+          <BlogSearchList posts={posts} initialTag={searchParams?.tag ?? ""} />
+        )}
+      </section>
+    </div>
   );
 }

@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { displayTag } from "@/lib/utils";
 import type { Tables } from "@/types/database";
+import { releasedFilter } from "@/lib/publishing";
 
 type FeedPost = Pick<
   Tables<"blog_posts">,
@@ -28,6 +29,7 @@ export async function GET() {
     .from("blog_posts")
     .select("title,slug,excerpt,published_at,updated_at,tags")
     .eq("status", "published")
+    .or(releasedFilter())
     .order("published_at", { ascending: false })
     .limit(50);
 

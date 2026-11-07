@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
+import { getAdminUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
 import type { Tables } from "@/types/database";
 
 export type MediaLibraryItem = Pick<
@@ -10,17 +10,14 @@ export type MediaLibraryItem = Pick<
 
 /** Feeds the media picker inside the admin editors. */
 export async function GET(request: Request) {
-  const supabase = createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  if (!session) {
+  if (!(await getAdminUser())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const { searchParams } = new URL(request.url);
-  const search = (searchParams.get("q") ?? "").trim();
+  // The term is spliced into a PostgREST .or() filter, where commas, parentheses
+  // and dots are syntax; leaving them in lets the query string add conditions.
+  const search = (searchParams.get("q") ?? "").replace(/[,()*%\\.:"]/g, " ").trim();
   const type = searchParams.get("type") ?? "";
   const limit = Math.min(120, Math.max(1, Number.parseInt(searchParams.get("limit") ?? "60", 10) || 60));
 

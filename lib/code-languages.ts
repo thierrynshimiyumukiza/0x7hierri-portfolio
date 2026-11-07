@@ -5,7 +5,7 @@
  * people actually type onto what the highlighter accepts.
  */
 
-/** Canonical ids registered by react-syntax-highlighter's Prism async loader. */
+/** Canonical Prism-style language ids; lib/shiki.ts maps the few that Shiki names differently. */
 const SUPPORTED_LANGUAGES = new Set<string>([
   "abap","abnf","actionscript","ada","agda","al","antlr4","apacheconf","apex","apl","applescript","aql","arduino",
   "arff","armasm","arturo","asciidoc","asm6502","asmatmel","aspnet","autohotkey","autoit","avisynth","avro-idl","awk",

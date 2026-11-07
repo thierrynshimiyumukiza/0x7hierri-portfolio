@@ -2,11 +2,8 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, Copy, Download, WrapText } from "lucide-react";
-import { PrismAsyncLight as SyntaxHighlighter } from "react-syntax-highlighter";
-import oneDark from "react-syntax-highlighter/dist/esm/styles/prism/one-dark";
-import oneLight from "react-syntax-highlighter/dist/esm/styles/prism/one-light";
 import { resolveCodeLanguage } from "@/lib/code-languages";
-import { useThemeMode } from "@/lib/use-theme-mode";
+import { highlightCode } from "@/lib/shiki";
 
 type CodeBlockProps = {
   /** Raw fence language exactly as the author typed it. */
@@ -17,6 +14,7 @@ type CodeBlockProps = {
 };
 
 const COLLAPSE_THRESHOLD = 28;
+const TERMINAL_LANGUAGES = new Set(["bash", "shell-session", "powershell", "batch"]);
 
 type FenceOptions = {
   filename: string;
@@ -84,13 +82,10 @@ function extensionFor(languageId: string): string {
 }
 
 export default function CodeBlock({ language, value, meta = "" }: CodeBlockProps) {
-  const themeMode = useThemeMode();
   const [copied, setCopied] = useState(false);
-  // The highlighter loads Prism grammars in the browser only, and it picks its
-  // palette from the runtime theme. Rendering it during hydration therefore
-  // produced markup the server could never match, so it waits for the mount and
-  // a plain, deterministic <pre> stands in until then.
-  const [mounted, setMounted] = useState(false);
+  // Shiki runs in the browser, so the server sends a plain <pre> with the same
+  // text and the highlighted markup replaces it once the grammar has loaded.
+  const [html, setHtml] = useState<string | null>(null);
   const [wrapped, setWrapped] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const regionRef = useRef<HTMLDivElement | null>(null);
@@ -99,17 +94,24 @@ export default function CodeBlock({ language, value, meta = "" }: CodeBlockProps
   const lines = useMemo(() => value.split("\n"), [value]);
   const options = useMemo(() => parseFenceMeta(meta, lines.length), [meta, lines.length]);
 
-  // refractor throws a TypeError the moment it is asked whether `undefined` is a
-  // registered language, which is exactly what an unlabelled or unknown fence used
-  // to send it. "text" is its own opt-out for "render this verbatim".
-  const highlighterLanguage = resolved.id || "text";
   const isLong = lines.length > COLLAPSE_THRESHOLD;
   const showLineNumbers = options.showLineNumbers ?? lines.length > 3;
-  const style = themeMode === "light" ? oneLight : oneDark;
+  const isDiff = resolved.id === "diff";
+  const isTerminal = TERMINAL_LANGUAGES.has(resolved.id);
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    let cancelled = false;
+    highlightCode(value, resolved.id, { highlightedLines: options.highlightedLines, diff: isDiff })
+      .then((result) => {
+        if (!cancelled) setHtml(result);
+      })
+      .catch(() => {
+        // The plain fallback stays on screen; highlighting is an enhancement.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [value, resolved.id, options.highlightedLines, isDiff]);
 
   useEffect(() => {
     if (!copied) return;
@@ -146,30 +148,24 @@ export default function CodeBlock({ language, value, meta = "" }: CodeBlockProps
     URL.revokeObjectURL(href);
   }, [options.filename, resolved.id, value]);
 
-  const lineProps = useCallback(
-    (lineNumber: number): React.HTMLProps<HTMLElement> => ({
-      style: {
-        display: "block",
-        width: "100%",
-        background: options.highlightedLines.has(lineNumber)
-          ? themeMode === "light"
-            ? "rgba(29, 103, 227, 0.10)"
-            : "rgba(88, 166, 255, 0.14)"
-          : undefined,
-        boxShadow: options.highlightedLines.has(lineNumber)
-          ? `inset 2px 0 0 ${themeMode === "light" ? "#1d67e3" : "#58a6ff"}`
-          : undefined,
-      },
-    }),
-    [options.highlightedLines, themeMode],
-  );
-
-  const hasHighlights = options.highlightedLines.size > 0;
-
   return (
-    <figure className="code-block" data-collapsed={isLong && !expanded ? "true" : "false"}>
+    <figure
+      className="code-block"
+      data-collapsed={isLong && !expanded ? "true" : "false"}
+      data-kind={isTerminal ? "terminal" : isDiff ? "diff" : "code"}
+      data-line-numbers={showLineNumbers ? "true" : "false"}
+      data-wrapped={wrapped ? "true" : "false"}
+      style={{ ["--code-start" as string]: options.startLine - 1 }}
+    >
       <figcaption className="code-block-head">
         <div className="code-block-identity">
+          {isTerminal ? (
+            <span className="code-block-dots" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </span>
+          ) : null}
           <span className="code-block-language">{resolved.label}</span>
           {options.filename ? <span className="code-block-filename">{options.filename}</span> : null}
           {!resolved.recognized ? (
@@ -215,40 +211,8 @@ export default function CodeBlock({ language, value, meta = "" }: CodeBlockProps
         role="region"
         aria-label={`${resolved.label} code${options.filename ? `, ${options.filename}` : ""}`}
       >
-        {mounted ? (
-          <SyntaxHighlighter
-            language={highlighterLanguage}
-            style={style}
-            showLineNumbers={showLineNumbers}
-            startingLineNumber={options.startLine}
-            wrapLines={hasHighlights}
-            wrapLongLines={wrapped}
-            lineProps={hasHighlights ? lineProps : undefined}
-            lineNumberStyle={{
-              minWidth: "2.4em",
-              paddingRight: "1em",
-              textAlign: "right",
-              color: "var(--text-faint)",
-              userSelect: "none",
-            }}
-            customStyle={{
-              margin: 0,
-              padding: "0.95rem 1rem",
-              background: "transparent",
-              fontSize: "13px",
-              lineHeight: 1.65,
-            }}
-            codeTagProps={{
-              style: {
-                fontFamily: "var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace",
-                fontSize: "13px",
-                whiteSpace: wrapped ? "pre-wrap" : "pre",
-                wordBreak: wrapped ? "break-word" : "normal",
-              },
-            }}
-          >
-            {value}
-          </SyntaxHighlighter>
+        {html ? (
+          <div className="code-block-shiki" dangerouslySetInnerHTML={{ __html: html }} />
         ) : (
           <pre className="code-block-plain">
             <code>{value}</code>

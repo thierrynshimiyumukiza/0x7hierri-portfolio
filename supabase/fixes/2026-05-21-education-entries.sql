@@ -42,7 +42,8 @@ begin
 end
 $$;
 
-alter table public.education_entries disable row level security;
+alter table public.education_entries enable row level security;
 
 grant usage on schema public to anon, authenticated, service_role;
-grant select, insert, update, delete on public.education_entries to anon, authenticated, service_role;
+grant select on public.education_entries to anon, authenticated;
+grant select, insert, update, delete on public.education_entries to service_role;

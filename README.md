@@ -167,9 +167,11 @@ Open `http://localhost:3000`.
 | ------------------------------- | ----------- | ---------------------------------------------------- |
 | `NEXT_PUBLIC_SUPABASE_URL`      | Yes         | Supabase URL for browser/server clients              |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes         | Public key for browser/server Supabase access        |
-| `SUPABASE_SERVICE_ROLE_KEY`     | Yes         | Admin client writes, uploads, and revalidation guard |
+| `SUPABASE_SERVICE_ROLE_KEY`     | Yes         | Admin client writes and uploads (server only)        |
+| `ADMIN_EMAILS`                  | Yes         | Comma-separated emails allowed into `/admin`         |
+| `REVALIDATE_SECRET`             | No          | Header secret for `/api/revalidate` webhooks         |
 | `NEXT_PUBLIC_SITE_NAME`         | No          | Site/metadata fallback title                         |
-| `NEXT_PUBLIC_SITE_URL`          | Recommended | Canonical base for sitemap output                    |
+| `NEXT_PUBLIC_SITE_URL`          | Yes (prod)  | Canonical URLs, sitemap, RSS and OG links            |
 
 ---
 
@@ -185,28 +187,36 @@ Current fix files:
 
 - `supabase/fixes/2026-05-21-education-entries.sql`
 - `supabase/fixes/2026-06-02-homepage-about-cms.sql`
+- `supabase/fixes/2026-10-17-enable-rls.sql`
 
 Notes:
 
-- The schema currently disables RLS for local/dev convenience.
-- Harden policies before production if you need stricter data access boundaries.
+- RLS is enabled on every table. `anon`/`authenticated` can only `SELECT` public rows
+  (published rows for tables with a `status`); `media_library` is not publicly readable.
+- All writes go through the service-role client, which bypasses RLS, behind `requireAdmin()`.
 
 ---
 
 ## Admin Access
 
-Admin routes are under `/admin` and require a valid Supabase session.
+Admin routes are under `/admin` and require a Supabase user whose email is listed in `ADMIN_EMAILS`.
 
 How to login:
 
 1. In Supabase Dashboard, create a user in Auth (Email/Password).
 2. Open `/admin/login` in the app.
-3. Sign in using that account.
+3. Add that email to `ADMIN_EMAILS`.
+4. Sign in using that account.
+
+Also turn off public sign-ups (Auth → Providers → Email → "Allow new users to sign up").
 
 Authentication behavior:
 
-- `app/admin/layout.tsx` checks session server-side.
-- Unauthenticated users are redirected to `/admin/login`.
+- `middleware.ts` verifies the user with `getUser()` on every `/admin` request and redirects
+  anyone not on the allowlist to `/admin/login`.
+- Every exported server action in `actions/` and every `/api/admin/*` route calls
+  `requireAdmin()` / `getAdminUser()` from `lib/auth.ts`. New actions must do the same:
+  server actions are public POST endpoints, and they write with the service-role key.
 
 ---
 
@@ -229,15 +239,15 @@ For production deployment (for example, Vercel):
 1. Set all required environment variables in your hosting platform.
 2. Ensure Supabase project is seeded/migrated and has required storage bucket access.
 3. Confirm remote image hosts in `next.config.mjs` include your media domains.
-4. If using on-demand revalidation, protect `/api/revalidate` with a strong secret (currently validated against `SUPABASE_SERVICE_ROLE_KEY`).
+4. If using on-demand revalidation, set `REVALIDATE_SECRET` and send it as the `x-revalidate-secret` header.
 
 ---
 
 ## Security Notes
 
-- `/api/admin/upload` requires an authenticated session and performs storage operations via service-role client.
-- `/api/revalidate` requires a matching secret query parameter.
-- Any authenticated Supabase user can currently access admin if they can sign in; for stricter control, enforce role claims or dedicated admin policy checks.
+- Admin access is an email allowlist (`ADMIN_EMAILS`); with it unset nobody can sign in to the CMS.
+- `/api/admin/upload` and `/api/admin/media` require an allowlisted admin.
+- `/api/revalidate` requires `REVALIDATE_SECRET` in the `x-revalidate-secret` header.
 
 ---
 

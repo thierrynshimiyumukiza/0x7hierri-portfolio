@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Eye, EyeOff, Loader2, Lock, Mail, TriangleAlert } from "lucide-react";
@@ -13,6 +13,14 @@ export default function AdminLoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // The middleware sends signed-in accounts that are not on ADMIN_EMAILS back
+  // here; drop that session so the next attempt starts clean.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("denied") !== "1") return;
+    setError("This account does not have admin access.");
+    void createClient().auth.signOut();
+  }, []);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
