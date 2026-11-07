@@ -116,19 +116,25 @@ create trigger set_updated_at_social_links
 before update on public.social_links
 for each row execute function public.set_updated_at();
 
-alter table if exists public.homepage_settings disable row level security;
-alter table if exists public.homepage_expertise disable row level security;
-alter table if exists public.about_focus_areas disable row level security;
-alter table if exists public.about_interests disable row level security;
-alter table if exists public.about_skill_groups disable row level security;
-alter table if exists public.social_links disable row level security;
+alter table if exists public.homepage_settings enable row level security;
+alter table if exists public.homepage_expertise enable row level security;
+alter table if exists public.about_focus_areas enable row level security;
+alter table if exists public.about_interests enable row level security;
+alter table if exists public.about_skill_groups enable row level security;
+alter table if exists public.social_links enable row level security;
 
-grant select, insert, update, delete on public.homepage_settings to anon, authenticated, service_role;
-grant select, insert, update, delete on public.homepage_expertise to anon, authenticated, service_role;
-grant select, insert, update, delete on public.about_focus_areas to anon, authenticated, service_role;
-grant select, insert, update, delete on public.about_interests to anon, authenticated, service_role;
-grant select, insert, update, delete on public.about_skill_groups to anon, authenticated, service_role;
-grant select, insert, update, delete on public.social_links to anon, authenticated, service_role;
+grant select on public.homepage_settings to anon, authenticated;
+grant select, insert, update, delete on public.homepage_settings to service_role;
+grant select on public.homepage_expertise to anon, authenticated;
+grant select, insert, update, delete on public.homepage_expertise to service_role;
+grant select on public.about_focus_areas to anon, authenticated;
+grant select, insert, update, delete on public.about_focus_areas to service_role;
+grant select on public.about_interests to anon, authenticated;
+grant select, insert, update, delete on public.about_interests to service_role;
+grant select on public.about_skill_groups to anon, authenticated;
+grant select, insert, update, delete on public.about_skill_groups to service_role;
+grant select on public.social_links to anon, authenticated;
+grant select, insert, update, delete on public.social_links to service_role;
 
 insert into public.homepage_settings (
   philosophy_quote,

@@ -495,7 +495,11 @@ export default function BlogEditor({ mode, action, initial, knownTags, siteUrl }
                 name="published_at"
                 className="admin-input"
               />
-              <span className="admin-hint">Leave empty to stamp the moment you publish.</span>
+              <span className="admin-hint">
+                {publishedAt && new Date(publishedAt).getTime() > Date.now()
+                  ? "Scheduled: the post stays hidden until this date, even when published."
+                  : "Leave empty to stamp the moment you publish. A future date schedules the post."}
+              </span>
             </label>
 
             <label className="admin-switch">

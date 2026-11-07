@@ -1,5 +1,6 @@
 "use server";
 
+import { requireAdmin } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -18,6 +19,7 @@ function revalidateSocialPaths() {
 }
 
 export async function createSocialLink(payload: SocialLinkPayload) {
+  await requireAdmin();
   const supabase = createAdminClient() as any;
   const { error } = await supabase.from("social_links").insert(payload);
   if (error) throw new Error(error.message);
@@ -25,6 +27,7 @@ export async function createSocialLink(payload: SocialLinkPayload) {
 }
 
 export async function updateSocialLink(id: string, payload: SocialLinkPayload) {
+  await requireAdmin();
   const supabase = createAdminClient() as any;
   const { error } = await supabase.from("social_links").update(payload).eq("id", id);
   if (error) throw new Error(error.message);
@@ -32,6 +35,7 @@ export async function updateSocialLink(id: string, payload: SocialLinkPayload) {
 }
 
 export async function deleteSocialLink(id: string) {
+  await requireAdmin();
   const supabase = createAdminClient() as any;
   const { error } = await supabase.from("social_links").delete().eq("id", id);
   if (error) throw new Error(error.message);

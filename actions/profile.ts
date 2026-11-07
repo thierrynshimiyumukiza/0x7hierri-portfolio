@@ -1,10 +1,12 @@
 "use server";
 
+import { requireAdmin } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Updates } from "@/types/database";
 
 export async function updateProfile(id: string, data: Updates<"profile">) {
+  await requireAdmin();
   const supabase = createAdminClient();
   const { error } = await supabase.from("profile").update(data).eq("id", id);
 

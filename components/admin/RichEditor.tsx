@@ -32,6 +32,7 @@ import {
 import MarkdownRenderer from "@/components/site/markdown/MarkdownRenderer";
 import { COMMON_EDITOR_LANGUAGES } from "@/lib/code-languages";
 import { countWords } from "@/lib/markdown-outline";
+import MarkdownCodeEditor, { type MarkdownCodeEditorHandle, type SlashCommand } from "@/components/admin/MarkdownCodeEditor";
 
 type RichEditorProps = {
   value: string;
@@ -43,9 +44,6 @@ type RichEditorProps = {
 
 type ViewMode = "write" | "split" | "preview";
 
-type PendingSelection = { start: number; end: number };
-
-const LIST_CONTINUATION = /^(\s*)([-*+]|\d+[.)])\s+(\[[ xX]\]\s+)?(.*)$/;
 
 function fileNameToAltText(name: string): string {
   return (
@@ -123,10 +121,9 @@ export default function RichEditor({
   const [dragActive, setDragActive] = useState(false);
   const [openMenu, setOpenMenu] = useState<"insert" | "language" | "">("");
 
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const editorRef = useRef<MarkdownCodeEditorHandle | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const previewRef = useRef<HTMLDivElement | null>(null);
-  const pendingSelectionRef = useRef<PendingSelection | null>(null);
   const syncingRef = useRef(false);
 
   const issues = useMemo(() => validateMarkdown(draft), [draft]);
@@ -140,16 +137,6 @@ export default function RichEditor({
     // Only external resets (loading a different post) should overwrite the buffer.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
-
-  useEffect(() => {
-    const pending = pendingSelectionRef.current;
-    const textarea = textareaRef.current;
-    if (!pending || !textarea) return;
-
-    textarea.focus();
-    textarea.setSelectionRange(pending.start, pending.end);
-    pendingSelectionRef.current = null;
-  }, [draft]);
 
   useEffect(() => {
     if (!fullscreen) return;
@@ -168,55 +155,35 @@ export default function RichEditor({
   }, [openMenu]);
 
   const commit = useCallback(
-    (next: string, selection?: PendingSelection) => {
+    (next: string) => {
       setDraft(next);
       onChange(next);
-      if (selection) pendingSelectionRef.current = selection;
     },
     [onChange],
   );
 
   /**
-   * Writing through execCommand keeps the browser's native undo stack intact, so
-   * Ctrl+Z still works after a toolbar action. The manual splice is the fallback
-   * for browsers that have dropped the API.
+   * Edits go through CodeMirror as transactions, so every toolbar action is a
+   * single undo step. The string splice only runs before the editor mounts.
    */
   const replaceRange = useCallback(
     (rangeStart: number, rangeEnd: number, replacement: string, cursorStart: number, cursorEnd: number) => {
-      const textarea = textareaRef.current;
-
-      if (textarea && typeof document.execCommand === "function") {
-        textarea.focus();
-        textarea.setSelectionRange(rangeStart, rangeEnd);
-        let inserted = false;
-        try {
-          inserted = document.execCommand("insertText", false, replacement);
-        } catch {
-          inserted = false;
-        }
-
-        if (inserted) {
-          const next = textarea.value;
-          setDraft(next);
-          onChange(next);
-          textarea.setSelectionRange(rangeStart + cursorStart, rangeStart + cursorEnd);
-          return;
-        }
+      const editor = editorRef.current;
+      if (editor) {
+        editor.replaceRange(rangeStart, rangeEnd, replacement, cursorStart, cursorEnd);
+        return;
       }
-
-      const next = `${draft.slice(0, rangeStart)}${replacement}${draft.slice(rangeEnd)}`;
-      commit(next, { start: rangeStart + cursorStart, end: rangeStart + cursorEnd });
+      commit(`${draft.slice(0, rangeStart)}${replacement}${draft.slice(rangeEnd)}`);
     },
-    [commit, draft, onChange],
+    [commit, draft],
   );
 
   const withSelection = useCallback(
     (handler: (context: { start: number; end: number; selected: string }) => void) => {
-      const textarea = textareaRef.current;
-      if (!textarea) return;
-      const start = textarea.selectionStart;
-      const end = textarea.selectionEnd;
-      handler({ start, end, selected: textarea.value.slice(start, end) });
+      const editor = editorRef.current;
+      if (!editor) return;
+      const { start, end } = editor.getSelection();
+      handler({ start, end, selected: editor.getValue().slice(start, end) });
     },
     [],
   );
@@ -234,7 +201,7 @@ export default function RichEditor({
   const prefixLines = useCallback(
     (prefix: string | ((index: number) => string)) => {
       withSelection(({ start, end }) => {
-        const source = textareaRef.current?.value ?? draft;
+        const source = editorRef.current?.getValue() ?? draft;
         const lineStart = source.lastIndexOf("\n", Math.max(0, start - 1)) + 1;
         const lineEndIndex = source.indexOf("\n", end);
         const lineEnd = lineEndIndex === -1 ? source.length : lineEndIndex;
@@ -256,7 +223,7 @@ export default function RichEditor({
   const applyHeading = useCallback(
     (level: 1 | 2 | 3) => {
       withSelection(({ start, end }) => {
-        const source = textareaRef.current?.value ?? draft;
+        const source = editorRef.current?.getValue() ?? draft;
         const lineStart = source.lastIndexOf("\n", Math.max(0, start - 1)) + 1;
         const lineEndIndex = source.indexOf("\n", end);
         const lineEnd = lineEndIndex === -1 ? source.length : lineEndIndex;
@@ -343,78 +310,11 @@ export default function RichEditor({
     [uploadAndInsert],
   );
 
-  function onEditorKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
-    const modifier = event.metaKey || event.ctrlKey;
-
-    if (modifier && !event.altKey) {
-      const key = event.key.toLowerCase();
-      if (key === "b") {
-        event.preventDefault();
-        wrapSelection("**", "**", "bold text");
-        return;
-      }
-      if (key === "i") {
-        event.preventDefault();
-        wrapSelection("_", "_", "italic text");
-        return;
-      }
-      if (key === "k") {
-        event.preventDefault();
-        insertLink();
-        return;
-      }
-      if (key === "e") {
-        event.preventDefault();
-        wrapSelection("`", "`", "code");
-        return;
-      }
-    }
-
-    if (event.key === "Tab") {
-      event.preventDefault();
-      withSelection(({ start, end, selected }) => {
-        if (selected.includes("\n")) {
-          prefixLines("  ");
-          return;
-        }
-        replaceRange(start, end, "  ", 2, 2);
-      });
-      return;
-    }
-
-    if (event.key === "Enter" && !event.shiftKey && !modifier) {
-      const textarea = event.currentTarget;
-      const caret = textarea.selectionStart;
-      if (caret !== textarea.selectionEnd) return;
-
-      const lineStart = textarea.value.lastIndexOf("\n", Math.max(0, caret - 1)) + 1;
-      const currentLine = textarea.value.slice(lineStart, caret);
-      const match = LIST_CONTINUATION.exec(currentLine);
-      if (!match) return;
-
-      const [, indent, bullet, checkbox, body] = match;
-
-      event.preventDefault();
-
-      if (!body.trim()) {
-        // Enter on an empty bullet ends the list instead of adding another one.
-        replaceRange(lineStart, caret, "", 0, 0);
-        return;
-      }
-
-      const nextBullet = /^\d+[.)]$/.test(bullet)
-        ? `${Number.parseInt(bullet, 10) + 1}${bullet.slice(-1)}`
-        : bullet;
-      const marker = `\n${indent}${nextBullet} ${checkbox ? "[ ] " : ""}`;
-      replaceRange(caret, caret, marker, marker.length, marker.length);
-    }
-  }
-
   function syncScroll(source: "editor" | "preview") {
     if (viewMode !== "split") return;
     if (syncingRef.current) return;
 
-    const editor = textareaRef.current;
+    const editor = editorRef.current?.scroller();
     const preview = previewRef.current;
     if (!editor || !preview) return;
 
@@ -473,6 +373,19 @@ export default function RichEditor({
     },
   ];
 
+  // Typing "/" at the start of a line opens these; the toolbar menus insert the same blocks.
+  const slashCommands: SlashCommand[] = [
+    { label: "Heading 2", detail: "## section", snippet: "## " },
+    { label: "Heading 3", detail: "### subsection", snippet: "### " },
+    { label: "Code block", detail: "``` fenced", snippet: "```\n\n```\n", cursor: 3 },
+    { label: "Bash", detail: "terminal block", snippet: "```bash\n\n```\n", cursor: 8 },
+    { label: "Diff", detail: "+ added / - removed", snippet: "```diff\n\n```\n", cursor: 8 },
+    ...insertItems.map((item) => ({ label: item.label, snippet: item.snippet.replace(/^\n/, "") })),
+    { label: "Divider", detail: "---", snippet: "---\n" },
+    { label: "Task list", detail: "- [ ]", snippet: "- [ ] " },
+    { label: "Quote", detail: ">", snippet: "> " },
+  ];
+
   const editorPane = (
     <div
       className={`editor-pane${dragActive ? " editor-pane-drop" : ""}`}
@@ -490,24 +403,21 @@ export default function RichEditor({
         void handleFiles(event.dataTransfer.files);
       }}
     >
-      <textarea
-        ref={textareaRef}
+      <MarkdownCodeEditor
+        ref={editorRef}
         value={draft}
-        onChange={(event) => commit(event.target.value)}
+        onChange={commit}
         onScroll={() => syncScroll("editor")}
-        onKeyDown={onEditorKeyDown}
-        onPaste={(event) => {
-          const files = event.clipboardData.files;
-          if (!files?.length) return;
-          if (!Array.from(files).some((file) => file.type.startsWith("image/"))) return;
-          event.preventDefault();
-          void handleFiles(files);
+        onShortcut={(key) => {
+          if (key === "bold") wrapSelection("**", "**", "bold text");
+          if (key === "italic") wrapSelection("_", "_", "italic text");
+          if (key === "link") insertLink();
+          if (key === "code") wrapSelection("`", "`", "code");
         }}
-        rows={minRows}
-        spellCheck
+        onFiles={(files) => void handleFiles(files)}
+        slashCommands={slashCommands}
         placeholder={placeholder}
-        aria-label="Markdown content"
-        className="editor-textarea"
+        minHeight={minRows * 26}
       />
       {dragActive ? <div className="editor-drop-hint">Drop to upload</div> : null}
     </div>
@@ -745,7 +655,7 @@ export default function RichEditor({
         {uploading ? <span className="editor-status-busy">Uploading image…</span> : null}
         {uploadError ? <span className="editor-status-error">{uploadError}</span> : null}
         <span className="editor-status-spacer" />
-        <span className="editor-status-hint">Ctrl+B bold · Ctrl+I italic · Ctrl+K link · Ctrl+E code</span>
+        <span className="editor-status-hint">/ commands · Ctrl+B bold · Ctrl+I italic · Ctrl+K link · Ctrl+F find</span>
       </div>
 
       {issues.length > 0 ? (

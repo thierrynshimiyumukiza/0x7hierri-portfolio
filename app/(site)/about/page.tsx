@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, ExternalLink, MapPin, Code2 } from "lucide-react";
+import { Award, MapPin } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { isMissingTableError } from "@/lib/supabase/errors";
 import { getSeoMetadata } from "@/lib/seo";
@@ -169,6 +169,7 @@ export default async function AboutPage() {
     interestsResult,
     skillGroupsResult,
     socialLinksResult,
+    certificationsResult,
   ] = await Promise.all([
     supabase.from("about_settings").select("*").maybeSingle(),
     supabase
@@ -187,6 +188,10 @@ export default async function AboutPage() {
     (supabase as any).from("about_interests").select("*").eq("visible", true).order("display_order", { ascending: true }),
     (supabase as any).from("about_skill_groups").select("*").eq("visible", true).order("display_order", { ascending: true }),
     (supabase as any).from("social_links").select("*").eq("visible", true).order("display_order", { ascending: true }),
+    supabase
+      .from("certifications")
+      .select("id,name,issuer,date_earned,url")
+      .order("display_order", { ascending: true }),
   ]);
 
   const educationMissing = isMissingTableError(educationResult.error, "education_entries");
@@ -241,20 +246,6 @@ export default async function AboutPage() {
         }))
       : fallbackSkillGroups();
 
-  const coreSkills = Array.from(
-    new Set(
-      finalSkillGroups
-        .flatMap((group) => group.items)
-        .map((item) => oneLine(item))
-        .filter(Boolean)
-    )
-  ).slice(0, 12);
-
-  const focusItems = finalFocus
-    .map((item) => oneLine(item.title))
-    .filter(Boolean)
-    .slice(0, 6);
-
   const interestsSummary =
     finalInterests
       .map((item) => oneLine(item.description || item.title))
@@ -291,299 +282,312 @@ export default async function AboutPage() {
     socials.find((item) => item.label.toLowerCase().includes("github"))?.url ||
     "";
 
+  const certifications =
+    (certificationsResult.data as Pick<Tables<"certifications">, "id" | "name" | "issuer" | "date_earned" | "url">[] | null) ?? [];
+
+  // Work and study read as one story, newest first.
+  type JourneyItem = {
+    id: string;
+    kind: "work" | "education";
+    title: string;
+    org: string;
+    orgUrl: string | null;
+    period: string;
+    current: boolean;
+    description: string;
+    sortKey: number;
+  };
+
+  const period = (start: string | null, end: string | null, current: boolean | null) => {
+    const from = formatMonthYear(start);
+    const to = current ? "present" : formatMonthYear(end);
+    return [from, to].filter(Boolean).join(" — ");
+  };
+
+  const journey: JourneyItem[] = [
+    ...experienceEntries.map((item) => ({
+      id: item.id,
+      kind: "work" as const,
+      title: oneLine(item.title),
+      org: oneLine(item.organization),
+      orgUrl: null,
+      period: period(item.start_date, item.end_date, item.is_current),
+      current: Boolean(item.is_current),
+      description: oneLine(item.description),
+      sortKey: item.start_date ? new Date(item.start_date).getTime() : 0,
+    })),
+    ...education.map((item) => ({
+      id: item.id,
+      kind: "education" as const,
+      title:
+        [oneLine(item.degree), oneLine(item.field_of_study)].filter(Boolean).join(" · ") || oneLine(item.school_name),
+      org: oneLine(item.school_name),
+      orgUrl: oneLine(item.school_url) || null,
+      period: period(item.start_date, item.end_date, item.is_current),
+      current: Boolean(item.is_current),
+      description: oneLine(item.description),
+      sortKey: item.start_date ? new Date(item.start_date).getTime() : 0,
+    })),
+  ].sort((a, b) => b.sortKey - a.sortKey);
+
+  const currentRole = journey.find((item) => item.kind === "work" && item.current);
+  const currentSchool = journey.find((item) => item.kind === "education" && item.current);
+  const avatar = oneLine(about?.profile_image_url) || oneLine(profile?.profile_picture_url);
+  const available = Boolean(profile?.availability_status);
+
   return (
-    <section className="relative mx-auto max-w-[1040px] px-4 pb-14 pt-10 sm:px-6 sm:pt-12 lg:px-8 lg:pt-14">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-36"
-        style={{ background: "radial-gradient(ellipse at top, rgba(16,69,132,0.18), rgba(2,6,11,0))" }}
-      />
-
-      <header className="relative grid gap-5 pb-8 sm:gap-6 sm:pb-9 lg:grid-cols-[minmax(0,1.18fr)_minmax(190px,0.72fr)] lg:items-start">
-        <div className="min-w-0">
-          {profile?.availability_status ? (
-            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[color:var(--border)] px-2.5 py-1 text-[10px] text-[var(--text-muted)]">
-              <span className="h-2 w-2 rounded-full bg-[#3fb950]" />
-              {oneLine(profile?.availability_text) || "Available for collaboration"}
-            </div>
-          ) : null}
-
-          <h1 className="text-[clamp(32px,5.4vw,50px)] font-medium leading-[1.02] tracking-[-0.02em] text-[var(--text-primary)]">
-            About Me
-          </h1>
-
-          <p className="mt-3 max-w-[56ch] text-[14px] leading-[1.75] text-[var(--text-body)] sm:text-[15px]">
+    <div className="ui-page">
+      <section
+        className="ui-wrap"
+        style={{ paddingTop: 80, paddingBottom: 64, display: "flex", flexWrap: "wrap", gap: 48, alignItems: "flex-start" }}
+      >
+        <div className="flex flex-col gap-6" style={{ flex: "999 1 560px", minWidth: 0 }}>
+          <p className="ui-label">$ cat about.md</p>
+          <h1 className="ui-h1" style={{ fontSize: "clamp(34px, 4.4vw, 54px)" }}>
             {intro}
-          </p>
-          <p className="mt-2.5 max-w-[56ch] text-[12px] leading-[1.75] text-[var(--text-muted)] sm:text-[13px] sm:leading-[1.82]">
-            {mission}
-          </p>
-
-          <details className="mt-4 rounded-lg border border-[color:var(--border)] bg-[var(--bg-surface)]/80 p-2.5 lg:hidden">
-            <summary className="cursor-pointer list-none rounded-md border border-[color:var(--border)] px-3 py-2 text-[10px] uppercase tracking-[0.1em] text-[var(--text-muted)]">
-              Toggle profile
-            </summary>
-
-            <div className="mt-3 flex items-center gap-3 px-1">
-              <div className="h-16 w-16 overflow-hidden rounded-full border border-[color:var(--border)] bg-[var(--bg-surface)]">
-                {profile?.profile_picture_url ? (
-                  <img src={profile.profile_picture_url} alt={username} className="h-full w-full object-cover" />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center font-mono text-2xl text-[var(--accent-blue)]">0x</div>
-                )}
-              </div>
-
-              <div className="min-w-0">
-                <div className="truncate font-mono text-[18px] leading-none text-[var(--text-primary)]">{username}</div>
-                <div className="mt-1 inline-flex items-center gap-1.5 text-[11px] text-[var(--text-muted)]">
-                  <MapPin size={12} />
-                  <span className="truncate">{location}</span>
-                </div>
-              </div>
-            </div>
-          </details>
-        </div>
-
-        <div className="hidden flex-col items-start gap-2 lg:flex lg:items-end">
-          <div className="h-24 w-24 overflow-hidden rounded-full border border-[color:var(--border)] bg-[var(--bg-surface)] xl:h-28 xl:w-28">
-            {profile?.profile_picture_url ? (
-              <img src={profile.profile_picture_url} alt={username} className="h-full w-full object-cover" />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center font-mono text-3xl text-[var(--accent-blue)]">
-                0x
-              </div>
-            )}
-          </div>
-
-          <div className="font-mono text-[19px] leading-none text-[var(--text-primary)] xl:text-[21px]">{username}</div>
-          <div className="inline-flex items-center gap-1.5 text-[11px] text-[var(--text-muted)]">
-            <MapPin size={12} />
-            {location}
-          </div>
-        </div>
-      </header>
-
-      <section className="mt-8 rounded-xl border border-[color:var(--border)] bg-[var(--bg-surface)] px-4 py-4 sm:px-5 sm:py-5">
-        <div className="flex gap-3 sm:gap-4">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--bg-elevated)] text-[var(--accent-blue)]">
-            <Code2 size={17} />
-          </div>
-
-          <div className="min-w-0">
-            <h2 className="text-[24px] font-medium tracking-[-0.015em] text-[var(--accent-blue)]">My Journey</h2>
-            <div className="mt-2.5 grid gap-3">
-              {(narrativeBlocks.length > 0 ? narrativeBlocks : [mission]).map((paragraph, index) => (
-                <p key={`${paragraph}-${index}`} className="text-[13px] leading-7 text-[var(--text-muted)]">
-                  {paragraph}
+          </h1>
+          {narrativeBlocks.length > 0 ? (
+            <div className="flex flex-col gap-4">
+              {narrativeBlocks.map((block) => (
+                <p key={block.slice(0, 48)} className="ui-lead" style={{ fontSize: 19, lineHeight: 1.7 }}>
+                  {block}
                 </p>
               ))}
             </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="mt-4 grid gap-4 lg:grid-cols-2">
-        <article className="rounded-xl border border-[color:var(--border)] bg-[var(--bg-surface)] px-4 py-4 sm:px-5 sm:py-5">
-          <h3 className="text-[24px] font-medium tracking-[-0.015em] text-[var(--accent-blue)]">Experience</h3>
-
-          <div className="mt-4 grid gap-4">
-            {experienceEntries.length > 0 ? (
-              experienceEntries.map((entry) => {
-                const start = formatMonthYear(entry.start_date);
-                const end = entry.is_current ? "Present" : formatMonthYear(entry.end_date);
-
-                return (
-                  <div key={entry.id} className="rounded-lg border border-[color:var(--border)] bg-[var(--bg-card)] px-3.5 py-3">
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <h4 className="text-[18px] font-medium leading-tight text-[var(--text-primary)]">{entry.title}</h4>
-                      {(start || end) ? (
-                        <span className="rounded-full border border-[#3fb95066] bg-[#3fb9501a] px-2.5 py-1 font-mono text-[9px] uppercase tracking-[0.1em] text-[#3fb950]">
-                          {`${start ?? ""}${start && end ? " - " : ""}${end ?? ""}`}
-                        </span>
-                      ) : null}
-                    </div>
-
-                    {entry.organization ? (
-                      <p className="mt-1 text-[13px] text-[var(--accent-blue)]">{entry.organization}</p>
-                    ) : null}
-
-                    {entry.description ? (
-                      <p className="mt-2 text-[13px] leading-6 text-[var(--text-muted)]">{entry.description}</p>
-                    ) : null}
-                  </div>
-                );
-              })
-            ) : (
-              <p className="text-[13px] text-[var(--text-muted)]">No experience entries yet. Add them from Admin / About.</p>
-            )}
-          </div>
-        </article>
-
-        <article className="rounded-xl border border-[color:var(--border)] bg-[var(--bg-surface)] px-4 py-4 sm:px-5 sm:py-5">
-          <h3 className="text-[24px] font-medium tracking-[-0.015em] text-[var(--accent-blue)]">Education</h3>
-
-          <div className="mt-4 grid gap-4">
-            {education.length > 0 ? (
-              education.map((entry) => {
-                const start = formatMonthYear(entry.start_date);
-                const end = entry.is_current ? "Present" : formatMonthYear(entry.end_date);
-
-                return (
-                  <div key={entry.id} className="rounded-lg border border-[color:var(--border)] bg-[var(--bg-card)] px-3.5 py-3">
-                    <div className="flex gap-3">
-                      <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-md border border-[color:var(--border)] bg-[var(--bg-surface)]">
-                        {entry.logo_url ? (
-                          <img src={entry.logo_url} alt={`${entry.school_name} logo`} className="h-full w-full object-cover" />
-                        ) : (
-                          <span className="text-[10px] text-[var(--accent-blue)]">logo</span>
-                        )}
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-start justify-between gap-2">
-                          <div>
-                            {entry.school_url ? (
-                              <a
-                                href={entry.school_url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-[18px] font-medium leading-tight text-[var(--text-primary)] transition-colors hover:text-[var(--accent-blue)]"
-                              >
-                                {entry.school_name}
-                              </a>
-                            ) : (
-                              <h4 className="text-[18px] font-medium leading-tight text-[var(--text-primary)]">{entry.school_name}</h4>
-                            )}
-
-                            {(entry.degree || entry.field_of_study) ? (
-                              <p className="mt-1 text-[13px] text-[var(--accent-blue)]">
-                                {[entry.degree, entry.field_of_study].filter(Boolean).join(" - ")}
-                              </p>
-                            ) : null}
-                          </div>
-
-                          {(start || end) ? (
-                            <span className="text-[10px] text-[var(--text-muted)]">
-                              {`${start ?? ""}${start && end ? " - " : ""}${end ?? ""}`}
-                            </span>
-                          ) : null}
-                        </div>
-
-                        {entry.description ? (
-                          <p className="mt-2 text-[13px] leading-6 text-[var(--text-muted)]">{entry.description}</p>
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <p className="text-[13px] text-[var(--text-muted)]">No education entries yet. Add them from Admin / About.</p>
-            )}
-          </div>
-        </article>
-      </section>
-
-      <section className="mt-4 rounded-xl border border-[color:var(--border)] bg-[var(--bg-surface)] px-4 py-4 sm:px-5 sm:py-5">
-        <div className="grid gap-5 lg:grid-cols-3">
-          <div>
-            <h3 className="text-[23px] font-medium tracking-[-0.015em] text-[var(--accent-blue)]">Core Skills</h3>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {coreSkills.map((skill) => (
-                <span
-                  key={skill}
-                  className="rounded-md border border-[color:var(--border)] bg-[var(--bg-card)] px-2.5 py-1 text-[10px] text-[var(--text-muted)]"
-                >
-                  {skill}
-                </span>
-              ))}
-            </div>
-            <p className="mt-4 text-[12px] text-[var(--text-muted)]">Always learning. Always hacking.</p>
-          </div>
-
-          <div className="border-t border-[color:var(--border)] pt-4 lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0">
-            <h3 className="text-[23px] font-medium tracking-[-0.015em] text-[var(--accent-blue)]">Focus Areas</h3>
-            <ul className="mt-3 space-y-2">
-              {focusItems.map((item) => (
-                <li key={item} className="flex items-start gap-2 text-[13px] text-[var(--text-muted)]">
-                  <span className="mt-[2px] inline-flex h-4 w-4 items-center justify-center rounded-full border border-[color:var(--accent-blue)] text-[10px] text-[var(--accent-blue)]">
-                    ✓
-                  </span>
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="border-t border-[color:var(--border)] pt-4 lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0">
-            <h3 className="text-[23px] font-medium tracking-[-0.015em] text-[var(--accent-blue)]">What I&apos;m Interested In</h3>
-            <p className="mt-3 text-[13px] leading-7 text-[var(--text-muted)]">
-              {interestsSummary}
-            </p>
-            <Link
-              href="/blog"
-              className="mt-3 inline-flex items-center gap-2 rounded-lg border border-[color:var(--border)] px-3 py-1.5 text-[11px] text-[var(--text-muted)] transition-colors hover:border-[color:var(--accent-blue)] hover:text-[var(--text-primary)]"
-            >
-              Read my blog
-              <ArrowRight size={12} />
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      <section className="mt-4 rounded-xl border border-[color:var(--border)] px-4 py-4 sm:px-5 sm:py-5" style={{ background: "var(--bg-surface)" }}>
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-          <div>
-            <h2 className="text-[22px] font-medium leading-tight tracking-[-0.015em] text-[var(--text-primary)]">
-              Let&apos;s connect and build something secure together.
-            </h2>
-            <p className="mt-2 text-[13px] leading-7 text-[var(--text-muted)]">
-              I&apos;m always open to interesting projects and collaborations.
-            </p>
-
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              {socials.map((social) => (
-                <a
-                  key={social.label}
-                  href={social.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="rounded-full border border-[color:var(--border)] px-2.5 py-1 text-[10px] uppercase tracking-[0.1em] text-[var(--text-muted)] transition-colors hover:border-[color:var(--accent-blue)] hover:text-[var(--text-primary)]"
-                >
-                  {social.label}
-                </a>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-            <Link
-              href="/contact"
-              className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent-blue)] px-3.5 py-2 text-[11px] uppercase tracking-[0.08em] text-[var(--text-on-accent)] transition-transform duration-200 hover:-translate-y-0.5"
-            >
+          ) : (
+            <p className="ui-lead">{mission}</p>
+          )}
+          <div className="flex flex-wrap gap-3">
+            <Link href="/contact" className="ui-btn ui-btn-primary">
               Get in touch
-              <ArrowRight size={12} />
             </Link>
-
             {githubUrl ? (
-              <a
-                href={githubUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-lg border border-[color:var(--border)] px-3.5 py-2 text-[11px] uppercase tracking-[0.08em] text-[var(--text-muted)] transition-colors hover:border-[color:var(--accent-blue)] hover:text-[var(--text-primary)]"
-              >
+              <a href={githubUrl} target="_blank" rel="noreferrer" className="ui-btn">
                 GitHub
-                <ExternalLink size={12} />
               </a>
             ) : null}
           </div>
         </div>
+
+        <aside className="ui-card flex flex-col gap-5" style={{ flex: "1 1 300px", padding: 28 }}>
+          <div className="flex items-center gap-4">
+            {avatar ? (
+              <img
+                src={avatar}
+                alt={`${username} profile photo`}
+                width={72}
+                height={72}
+                style={{
+                  width: 72,
+                  height: 72,
+                  borderRadius: "50%",
+                  objectFit: "cover",
+                  border: "1px solid var(--border-strong)",
+                  background: "var(--bg-elevated)",
+                }}
+              />
+            ) : null}
+            <div className="min-w-0">
+              <div className="ui-mono" style={{ fontSize: 18, fontWeight: 500, color: "var(--text-primary)" }}>
+                {username}
+              </div>
+              <div className="flex items-center gap-1.5" style={{ color: "var(--text-muted)", fontSize: 14, marginTop: 4 }}>
+                <MapPin size={14} aria-hidden="true" />
+                {location}
+              </div>
+            </div>
+          </div>
+
+          <dl className="flex flex-col gap-3" style={{ fontSize: 15 }}>
+            {currentRole ? (
+              <div className="flex justify-between gap-3">
+                <dt style={{ color: "var(--text-muted)" }}>Role</dt>
+                <dd className="text-right" style={{ color: "var(--text-primary)" }}>
+                  {currentRole.title}
+                </dd>
+              </div>
+            ) : null}
+            {currentSchool ? (
+              <div className="flex justify-between gap-3">
+                <dt style={{ color: "var(--text-muted)" }}>Studying</dt>
+                <dd className="text-right" style={{ color: "var(--text-primary)" }}>
+                  {currentSchool.org}
+                </dd>
+              </div>
+            ) : null}
+            <div className="flex items-center justify-between gap-3">
+              <dt style={{ color: "var(--text-muted)" }}>Status</dt>
+              <dd
+                className="flex items-center gap-2 text-right"
+                style={{ color: available ? "var(--accent-green)" : "var(--text-muted)" }}
+              >
+                {available ? <span className="ui-dot" aria-hidden="true" /> : null}
+                {available ? oneLine(profile?.availability_text) || "open to collaborate" : "not taking new work"}
+              </dd>
+            </div>
+          </dl>
+
+          {socials.length > 0 ? (
+            <div className="flex flex-wrap gap-2" style={{ borderTop: "1px solid var(--border)", paddingTop: 18 }}>
+              {socials.map((item) => (
+                <a key={item.url} href={item.url} target="_blank" rel="noreferrer" className="ui-tag">
+                  {item.label.toLowerCase()}
+                </a>
+              ))}
+            </div>
+          ) : null}
+        </aside>
       </section>
 
-      <section className="mt-6 text-center">
-        <div className="text-[12px] text-[var(--text-dim)]">Security is not a product, but a process.</div>
-        <div className="mt-1 text-[12px] text-[var(--text-dim)]">Keep learning. Keep hacking. Keep building.</div>
+      {journey.length > 0 ? (
+        <section className="ui-wrap" style={{ paddingBottom: 72 }}>
+          <h2 className="ui-h2" style={{ marginBottom: 28 }}>
+            Journey
+          </h2>
+          <ol style={{ listStyle: "none", borderLeft: "1px solid var(--border-strong)", marginLeft: 8 }}>
+            {journey.map((item, index) => (
+              <li
+                key={item.id}
+                style={{ position: "relative", padding: index === journey.length - 1 ? "0 0 0 32px" : "0 0 36px 32px" }}
+              >
+                <span
+                  aria-hidden="true"
+                  style={{
+                    position: "absolute",
+                    left: -6,
+                    top: 6,
+                    width: 11,
+                    height: 11,
+                    borderRadius: "50%",
+                    background: item.current ? "var(--accent-blue)" : "var(--border-strong)",
+                    boxShadow: "0 0 0 4px var(--bg-base)",
+                  }}
+                />
+                <div
+                  className="ui-mono flex flex-wrap gap-x-3"
+                  style={{ fontSize: 13, color: item.current ? "var(--accent-blue)" : "var(--text-muted)" }}
+                >
+                  {item.period ? <span>{item.period}</span> : null}
+                  <span style={{ color: "var(--text-dim)" }}>{item.kind === "work" ? "work" : "education"}</span>
+                </div>
+                <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1" style={{ marginTop: 6 }}>
+                  <h3 style={{ fontSize: 21, fontWeight: 600, color: "var(--text-primary)" }}>{item.title}</h3>
+                  {item.org && item.org !== item.title ? (
+                    item.orgUrl ? (
+                      <a href={item.orgUrl} target="_blank" rel="noreferrer" className="ui-link">
+                        {item.org}
+                      </a>
+                    ) : (
+                      <span style={{ color: "var(--text-muted)" }}>at {item.org}</span>
+                    )
+                  ) : null}
+                </div>
+                {item.description ? (
+                  <p style={{ marginTop: 10, color: "var(--text-body)", lineHeight: 1.65, maxWidth: "44em" }}>
+                    {item.description}
+                  </p>
+                ) : null}
+              </li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
+
+      {finalSkillGroups.length > 0 ? (
+        <section className="ui-wrap" style={{ paddingBottom: 72 }}>
+          <h2 className="ui-h2" style={{ marginBottom: 24 }}>
+            What I work with
+          </h2>
+          <div className="ui-grid-auto" style={{ ["--ui-min" as string]: "260px", ["--ui-gap" as string]: "16px" }}>
+            {finalSkillGroups.map((group) => (
+              <div key={group.id} className="ui-card" style={{ padding: 24 }}>
+                <div className="ui-label">{group.group_title}</div>
+                <div className="flex flex-wrap gap-2" style={{ marginTop: 16 }}>
+                  {group.items.map((item) => (
+                    <span key={item} className="ui-tag">
+                      {item}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {finalFocus.length > 0 ? (
+        <section className="ui-wrap" style={{ paddingBottom: 72 }}>
+          <h2 className="ui-h2" style={{ marginBottom: 24 }}>
+            Focus areas
+          </h2>
+          <div className="ui-grid-auto" style={{ ["--ui-min" as string]: "300px", ["--ui-gap" as string]: "16px" }}>
+            {finalFocus.map((item) => (
+              <div key={item.id} className="ui-card" style={{ padding: 24 }}>
+                <h3 style={{ fontSize: 17, fontWeight: 600, color: "var(--text-primary)" }}>{oneLine(item.title)}</h3>
+                {item.description ? (
+                  <p style={{ marginTop: 8, color: "var(--text-muted)", lineHeight: 1.6, fontSize: 15 }}>
+                    {oneLine(item.description)}
+                  </p>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {certifications.length > 0 ? (
+        <section className="ui-wrap" style={{ paddingBottom: 72 }}>
+          <h2 className="ui-h2" style={{ marginBottom: 24 }}>
+            Certifications
+          </h2>
+          <div className="ui-grid-auto" style={{ ["--ui-min" as string]: "340px", ["--ui-gap" as string]: "16px" }}>
+            {certifications.map((cert) => (
+              <div key={cert.id} className="ui-card flex items-center gap-4" style={{ padding: "22px 24px" }}>
+                <span
+                  className="flex flex-none items-center justify-center"
+                  aria-hidden="true"
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 10,
+                    background: "var(--accent-blue-soft)",
+                    border: "1px solid var(--accent-blue-line)",
+                    color: "var(--accent-blue)",
+                  }}
+                >
+                  <Award size={20} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div style={{ fontWeight: 500, color: "var(--text-primary)" }}>{cert.name}</div>
+                  <div className="ui-mono" style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 4 }}>
+                    {[cert.issuer, formatMonthYear(cert.date_earned)].filter(Boolean).join(" · ")}
+                  </div>
+                </div>
+                {cert.url ? (
+                  <a href={cert.url} target="_blank" rel="noreferrer" className="ui-link ui-mono" style={{ fontSize: 13 }}>
+                    verify ↗
+                  </a>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      <section className="ui-wrap" style={{ paddingBottom: 96 }}>
+        <div
+          className="ui-card flex flex-wrap items-center justify-between gap-6"
+          style={{ padding: 40, borderColor: "var(--accent-blue-line)" }}
+        >
+          <div style={{ flex: "1 1 320px" }}>
+            <h2 className="ui-h2">Working on something interesting?</h2>
+            <p style={{ marginTop: 10, color: "var(--text-body)", fontSize: 17, lineHeight: 1.6 }}>{interestsSummary}</p>
+          </div>
+          <Link href="/contact" className="ui-btn ui-btn-primary">
+            Say hello
+          </Link>
+        </div>
       </section>
-    </section>
+    </div>
   );
 }

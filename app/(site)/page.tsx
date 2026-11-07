@@ -1,42 +1,14 @@
 import type { Metadata } from "next";
-import { format, formatDistanceToNow } from "date-fns";
 import { getSeoMetadata } from "@/lib/seo";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isMissingTableError } from "@/lib/supabase/errors";
 import type { Database, Tables } from "@/types/database";
-import HomePageClient from "@/components/site/home/HomePageClient";
+import HomeView, { type HomePost } from "@/components/site/home/HomeView";
+import { releasedFilter } from "@/lib/publishing";
 
 export async function generateMetadata(): Promise<Metadata> {
   return getSeoMetadata("home");
 }
-
-type FeedItem = {
-  id: string;
-  type: "project" | "study" | "blog";
-  title: string;
-  description: string;
-  thumbnail_url: string | null;
-  tags: string[];
-  url: string;
-  meta: string;
-  date: string;
-  progress?: number;
-};
-
-type LiveItem = {
-  type: "published" | "updated" | "in_progress";
-  title: string;
-  url: string;
-  date: string;
-};
-
-type HomepageSettingsRow = {
-  id: string;
-  about_preview_title: string | null;
-  about_preview_text: string | null;
-  about_preview_button_text: string | null;
-  about_preview_url: string | null;
-};
 
 type HomepageExpertiseRow = {
   id: string;
@@ -65,8 +37,6 @@ export default async function HomePage() {
     projects,
     studies,
     blogs,
-    navItems,
-    homepageSettings,
     homepageExpertise,
     socialLinks,
   ] = await Promise.all([
@@ -91,10 +61,9 @@ export default async function HomePage() {
       .from("blog_posts")
       .select("*")
       .eq("status", "published")
+      .or(releasedFilter())
       .order("published_at", { ascending: false })
-      .limit(4),
-    supabase.from("navigation").select("*").eq("visible", true).order("display_order"),
-    fromLooseTable("homepage_settings").select("*").maybeSingle(),
+      .limit(5),
     fromLooseTable("homepage_expertise").select("*").eq("visible", true).order("display_order"),
     fromLooseTable("social_links").select("*").eq("visible", true).order("display_order"),
   ]);
@@ -105,16 +74,9 @@ export default async function HomePage() {
   const projectRows = (projects.data as Tables<"projects">[] | null) ?? [];
   const studyRows = (studies.data as Tables<"study_categories">[] | null) ?? [];
   const blogRows = (blogs.data as Tables<"blog_posts">[] | null) ?? [];
-  const navigationRows = (navItems.data as Tables<"navigation">[] | null) ?? [];
 
-  const homepageSettingsMissing = isMissingTableError(homepageSettings.error ?? null, "homepage_settings");
   const homepageExpertiseMissing = isMissingTableError(homepageExpertise.error ?? null, "homepage_expertise");
   const socialLinksMissing = isMissingTableError(socialLinks.error ?? null, "social_links");
-
-  const homepageSettingsRow =
-    !homepageSettings.error || homepageSettingsMissing
-      ? ((homepageSettings.data as HomepageSettingsRow | null) ?? null)
-      : null;
 
   const homepageExpertiseRows =
     !homepageExpertise.error || homepageExpertiseMissing
@@ -126,126 +88,99 @@ export default async function HomePage() {
       ? ((socialLinks.data as Array<{ id: string; label: string; url: string; platform: string | null }> | null) ?? [])
       : [];
 
-  const aboutLink = navigationRows.find((item) => item.url.startsWith("/about"))?.url ?? "/about";
+  const toPost = (row: Tables<"blog_posts">): HomePost => ({
+    id: row.id,
+    title: row.title,
+    slug: row.slug,
+    excerpt: oneLine(row.excerpt),
+    thumbnailUrl: row.thumbnail_url ?? null,
+    tags: row.tags ?? [],
+    readingTime: row.reading_time ?? 1,
+    publishedAt: row.published_at ?? null,
+  });
 
-  const feedItems: FeedItem[] = [
-    ...projectRows.map((p) => ({
-      id: p.id,
-      type: "project" as const,
-      title: p.title,
-      description: p.description ?? "",
-      thumbnail_url: p.thumbnail_url ?? null,
-      tags: p.tags ?? [],
-      url: `/projects/${p.slug}`,
-      meta: "project",
-      date: p.created_at ? format(new Date(p.created_at), "MMM dd") : "",
-      progress: undefined,
-    })),
-    ...studyRows.map((s) => ({
-      id: s.id,
-      type: "study" as const,
-      title: s.title,
-      description: s.description ?? "",
-      thumbnail_url: s.thumbnail_url ?? null,
-      tags: s.tags ?? [],
-      url: `/studies/${s.slug}`,
-      meta: `${s.entry_count ?? 0} entries · ${s.difficulty ?? "beginner"}`,
-      date: s.updated_at ? format(new Date(s.updated_at), "MMM dd") : "",
-      progress: s.progress_percent ?? 0,
-    })),
-    ...blogRows.map((b) => ({
-      id: b.id,
-      type: "blog" as const,
-      title: b.title,
-      description: b.excerpt ?? "",
-      thumbnail_url: b.thumbnail_url ?? null,
-      tags: b.tags ?? [],
-      url: `/blog/${b.slug}`,
-      meta: `${b.reading_time ?? 1} min read`,
-      date: b.published_at ? format(new Date(b.published_at), "MMM dd") : "",
-      progress: undefined,
-    })),
-  ];
+  // The featured flag picks the big card; without one the newest post takes it.
+  const featuredRow = blogRows.find((row) => row.featured) ?? blogRows[0] ?? null;
+  const listRows = blogRows.filter((row) => row !== featuredRow).slice(0, 3);
 
-  const liveItems: LiveItem[] = [
-    ...blogRows.slice(0, 3).map((b) => ({
-      type: "published" as const,
-      title: b.title,
-      url: `/blog/${b.slug}`,
-      date: b.published_at
-        ? formatDistanceToNow(new Date(b.published_at), { addSuffix: true })
-        : "",
-    })),
-    ...studyRows.slice(0, 2).map((s) => ({
-      type: "updated" as const,
-      title: s.title,
-      url: `/studies/${s.slug}`,
-      date: s.updated_at
-        ? formatDistanceToNow(new Date(s.updated_at), { addSuffix: true })
-        : "",
-    })),
-    ...projectRows.slice(0, 2).map((p) => ({
-      type: "in_progress" as const,
-      title: p.title,
-      url: `/projects/${p.slug}`,
-      date: p.updated_at
-        ? formatDistanceToNow(new Date(p.updated_at), { addSuffix: true })
-        : "",
-    })),
-  ].slice(0, 5);
+  const cta = (text?: string | null, url?: string | null) =>
+    oneLine(text) && oneLine(url) ? { text: oneLine(text), url: oneLine(url) } : null;
+
+  // "cat now.txt" lists what the CMS says I focus on, falling back to study tracks.
+  const nowItems = (
+    homepageExpertiseRows.length > 0
+      ? homepageExpertiseRows.map((item) => oneLine(item.title))
+      : studyRows.map((row) => oneLine(row.title))
+  )
+    .filter(Boolean)
+    .slice(0, 4);
+
+  const links =
+    socialLinkRows.length > 0
+      ? socialLinkRows.map((item) => ({ label: oneLine(item.label) || oneLine(item.platform) || "link", url: oneLine(item.url) }))
+      : [
+          { label: "github", url: oneLine(profileRow?.github_url) },
+          { label: "twitter", url: oneLine(profileRow?.twitter_url) },
+          { label: "linkedin", url: oneLine(profileRow?.linkedin_url) },
+        ];
+
+  const studyRow = studyRows[0] ?? null;
+  const projectRow = projectRows[0] ?? null;
 
   return (
-    <HomePageClient
+    <HomeView
       hero={{
-        heading_line1: oneLine(heroRow?.heading_line1),
-        heading_line2: oneLine(heroRow?.heading_line2),
-        heading_line3: oneLine(heroRow?.heading_line3),
+        line1: oneLine(heroRow?.heading_line1),
+        line2: oneLine(heroRow?.heading_line2),
+        line3: oneLine(heroRow?.heading_line3),
         subheading: oneLine(heroRow?.subheading),
         description: oneLine(heroRow?.description) || oneLine(profileRow?.bio),
-        cta_primary_text: oneLine(heroRow?.cta_primary_text),
-        cta_primary_url: oneLine(heroRow?.cta_primary_url),
-        cta_secondary_text: oneLine(heroRow?.cta_secondary_text),
-        cta_secondary_url: oneLine(heroRow?.cta_secondary_url),
-        show_availability: Boolean(heroRow?.show_availability),
-        availability_text: oneLine(profileRow?.availability_text),
+        ctaPrimary: cta(heroRow?.cta_primary_text, heroRow?.cta_primary_url),
+        ctaSecondary: cta(heroRow?.cta_secondary_text, heroRow?.cta_secondary_url),
+        availability:
+          heroRow?.show_availability && profileRow?.availability_status
+            ? oneLine(profileRow?.availability_text) || "available for collaboration"
+            : null,
       }}
       profile={{
-        profile_picture_url: oneLine(profileRow?.profile_picture_url) || null,
         username: oneLine(profileRow?.username),
         location: oneLine(profileRow?.location),
-        bio: oneLine(profileRow?.bio),
-        availability_status: Boolean(profileRow?.availability_status),
-        availability_text: oneLine(profileRow?.availability_text),
-        github_url: oneLine(profileRow?.github_url) || null,
-        twitter_url: oneLine(profileRow?.twitter_url) || null,
-        linkedin_url: oneLine(profileRow?.linkedin_url) || null,
+        githubUrl: oneLine(profileRow?.github_url) || null,
       }}
       stats={statisticsRows.map((stat) => ({
         id: stat.id,
         number: oneLine(stat.number),
         label: oneLine(stat.label),
       }))}
-      feedItems={feedItems}
-      liveItems={liveItems}
-      aboutLink={aboutLink}
-      expertiseItems={homepageExpertiseRows.map((item) => ({
-        id: item.id,
-        title: oneLine(item.title),
-        description: oneLine(item.description),
-        icon: oneLine(item.icon) || "shield",
-      }))}
-      homepageSettings={{
-        about_preview_title: oneLine(homepageSettingsRow?.about_preview_title),
-        about_preview_text:
-          oneLine(homepageSettingsRow?.about_preview_text) || profileRow?.bio || "",
-        about_preview_button_text: oneLine(homepageSettingsRow?.about_preview_button_text),
-        about_preview_url: oneLine(homepageSettingsRow?.about_preview_url) || aboutLink,
-      }}
-      socialLinks={socialLinkRows.map((item) => ({
-        id: item.id,
-        label: oneLine(item.label) || oneLine(item.platform) || "social",
-        url: oneLine(item.url),
-      }))}
+      nowItems={nowItems}
+      links={links.filter((link) => link.url)}
+      featuredPost={featuredRow ? toPost(featuredRow) : null}
+      posts={listRows.map(toPost)}
+      study={
+        studyRow
+          ? {
+              id: studyRow.id,
+              title: studyRow.title,
+              slug: studyRow.slug,
+              description: oneLine(studyRow.description),
+              entryCount: studyRow.entry_count ?? 0,
+              difficulty: studyRow.difficulty ?? "beginner",
+              progress: studyRow.progress_percent ?? 0,
+              tags: studyRow.tags ?? [],
+            }
+          : null
+      }
+      project={
+        projectRow
+          ? {
+              id: projectRow.id,
+              title: projectRow.title,
+              slug: projectRow.slug,
+              description: oneLine(projectRow.description),
+              tags: projectRow.tags ?? [],
+            }
+          : null
+      }
     />
   );
 }

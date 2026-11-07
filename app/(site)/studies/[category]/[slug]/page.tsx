@@ -2,9 +2,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { File, FileDown } from "lucide-react";
+import { ArrowLeft, ArrowRight, CalendarDays, Clock, File, FileDown } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { formatDateTime, generateSlug } from "@/lib/utils";
+import { displayTag, formatDateTime, generateSlug } from "@/lib/utils";
+import { extractOutline } from "@/lib/markdown-outline";
+import TableOfContents from "@/components/site/markdown/TableOfContents";
 import MarkdownRenderer from "@/components/site/markdown/MarkdownRenderer";
 import type { Tables } from "@/types/database";
 
@@ -72,126 +74,155 @@ export default async function StudyEntryPage({ params }: StudyEntryPageProps) {
     notFound();
   }
 
-  const [{ data: mediaData, error: mediaError }, { data: timelineData, error: timelineError }] =
-    await Promise.all([
-      supabase
-        .from("study_media")
-        .select("id,url,caption,media_type")
-        .eq("entry_id", entry.id)
-        .order("display_order", { ascending: true }),
-      supabase
-        .from("study_entries")
-        .select("id,slug,title,published_at")
-        .eq("category_id", category.id)
-        .eq("status", "published")
-        .order("published_at", { ascending: false }),
-    ]);
+  const { data: mediaData, error: mediaError } = await supabase
+    .from("study_media")
+    .select("id,url,caption,media_type")
+    .eq("entry_id", entry.id)
+    .order("display_order", { ascending: true });
 
-  if (mediaError || timelineError) {
+  if (mediaError) {
     return null;
   }
 
   const media = (mediaData as Pick<Tables<"study_media">, "id" | "url" | "caption" | "media_type">[] | null) ?? [];
-  const timelineEntries =
-    (timelineData as Pick<Tables<"study_entries">, "id" | "slug" | "title" | "published_at">[] | null) ?? [];
-
   const attachmentMedia = media.filter(
     (item) => item.media_type === "pdf" || item.media_type === "attachment",
   );
 
-  const index = timelineEntries.findIndex((item) => item.id === entry.id);
-  const prev = index >= 0 ? timelineEntries[index + 1] ?? null : null;
-  const next = index > 0 ? timelineEntries[index - 1] ?? null : null;
+  // entries is newest-first, so the previous note sits one index later.
+  const index = entries.findIndex((item) => item.id === entry.id);
+  const prev = index >= 0 ? entries[index + 1] ?? null : null;
+  const next = index > 0 ? entries[index - 1] ?? null : null;
+
+  const content = entry.content ?? "";
+  const outline = extractOutline(content);
+  const trackHref = `/studies/${encodeURIComponent(category.slug)}`;
 
   return (
-    <section className="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
-      <Link
-        href={`/studies/${encodeURIComponent(category.slug)}`}
-        className="mono-label mb-6 inline-block hover:text-[--text-primary]"
-      >
-        {category.title}
-      </Link>
+    <div className="article-page">
+      <div className="article-shell">
+        <header className="article-header">
+          <Link href={trackHref} className="article-back">
+            <ArrowLeft size={13} aria-hidden="true" />
+            {category.title}
+          </Link>
 
-      {entry.cover_image_url ? (
-        <img
-          src={entry.cover_image_url}
-          alt={entry.title}
-          loading="eager"
-          className="mb-6 h-auto w-full rounded-lg border border-[--border] object-cover"
-        />
-      ) : null}
+          {entry.entry_number ? (
+            <p className="ui-label" style={{ color: "var(--accent-green)" }}>
+              entry {String(entry.entry_number).padStart(2, "0")}
+            </p>
+          ) : null}
 
-      <h1 className="text-3xl font-medium tracking-[-1.1px] text-[--text-primary] sm:text-4xl">{entry.title}</h1>
+          <h1 className="article-title">{entry.title}</h1>
 
-      <p className="mt-2 text-sm text-[--text-dim]">
-        {formatDateTime(entry.published_at)}
-        {entry.reading_time ? ` · ${entry.reading_time} min` : ""}
-        {` · ${category.title}`}
-      </p>
+          {entry.summary ? <p className="article-lede">{entry.summary}</p> : null}
 
-      {(entry.tags ?? []).length > 0 ? (
-        <div className="mt-4 flex flex-wrap gap-2">
-          {(entry.tags ?? []).map((tag) => (
-            <span
-              key={`${entry.id}-${tag}`}
-              className="rounded-full border border-[--border] px-2 py-0.5 font-mono text-[10px] text-[--text-dim]"
-            >
-              {tag}
-            </span>
-          ))}
-        </div>
-      ) : null}
-
-      <div className="mt-8">
-        <MarkdownRenderer content={entry.content ?? ""} />
-      </div>
-
-      {attachmentMedia.length > 0 ? (
-        <div className="mt-10 rounded-lg border border-[--border] bg-[--bg-surface] p-4">
-          <div className="space-y-2">
-            {attachmentMedia.map((file) => {
-              const name = file.url.split("/").pop() ?? file.url;
-              return (
-                <div key={file.id} className="flex items-center justify-between gap-4 border-b border-[--border] pb-2 last:border-0">
-                  <div className="flex items-center gap-2">
-                    <File className="h-4 w-4 text-[--text-muted]" />
-                    <span className="text-sm text-[--text-body]">{name}</span>
-                  </div>
-                  <a
-                    href={file.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 rounded border border-[--border] px-2 py-1 text-xs text-[--text-muted]"
-                  >
-                    <FileDown className="h-3 w-3" />
-                    <span>{file.caption ?? ""}</span>
-                  </a>
-                </div>
-              );
-            })}
+          <div className="article-meta">
+            {entry.published_at ? (
+              <span className="article-meta-item">
+                <CalendarDays size={12} aria-hidden="true" />
+                {formatDateTime(entry.published_at)}
+              </span>
+            ) : null}
+            {entry.reading_time ? (
+              <span className="article-meta-item">
+                <Clock size={12} aria-hidden="true" />
+                {entry.reading_time} min read
+              </span>
+            ) : null}
           </div>
+
+          {(entry.tags ?? []).length > 0 ? (
+            <ul className="article-tags">
+              {(entry.tags ?? []).map((tag) => (
+                <li key={`${entry.id}-${tag}`}>
+                  <span className="article-tag">#{displayTag(tag)}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </header>
+
+        {entry.cover_image_url ? (
+          <figure className="article-cover">
+            <img src={entry.cover_image_url} alt={entry.title} loading="eager" style={{
+                width: "100%",
+                maxHeight: 360,
+                objectFit: "contain",
+                borderRadius: 12,
+                border: "1px solid var(--border)",
+                background: "var(--bg-sunken)",
+              }} />
+          </figure>
+        ) : null}
+
+        <div className="article-body">
+          <aside className="article-aside">
+            <TableOfContents items={outline} />
+          </aside>
+
+          <article className="article-content">
+            {content.trim() ? (
+              <MarkdownRenderer content={content} />
+            ) : (
+              <p className="article-empty">This note has no content yet.</p>
+            )}
+
+            {attachmentMedia.length > 0 ? (
+              <div className="ui-card" style={{ marginTop: 40, padding: "8px 0" }}>
+                <p className="ui-label" style={{ padding: "12px 20px" }}>
+                  attachments
+                </p>
+                {attachmentMedia.map((file) => {
+                  const name = file.url.split("/").pop() ?? file.url;
+                  return (
+                    <a
+                      key={file.id}
+                      href={file.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="ui-row-link flex items-center justify-between gap-4"
+                      style={{ padding: "12px 20px", borderTop: "1px solid var(--border-muted)" }}
+                    >
+                      <span className="flex min-w-0 items-center gap-3">
+                        <File size={16} aria-hidden="true" style={{ color: "var(--text-dim)" }} />
+                        <span className="ui-row-title truncate" style={{ fontSize: 15, color: "var(--text-body)" }}>
+                          {file.caption || name}
+                        </span>
+                      </span>
+                      <FileDown size={16} aria-hidden="true" style={{ color: "var(--text-dim)" }} />
+                    </a>
+                  );
+                })}
+              </div>
+            ) : null}
+          </article>
         </div>
-      ) : null}
 
-      <div className="mt-10 grid gap-3 sm:grid-cols-2">
-        {prev ? (
-          <Link
-            href={`/studies/${encodeURIComponent(category.slug)}/${encodeURIComponent(prev.slug)}`}
-            className="surface-card block"
-          >
-            <p className="text-sm text-[--text-primary]">{prev.title}</p>
-          </Link>
-        ) : <span />}
+        {prev || next ? (
+          <nav className="article-pager" aria-label="More notes in this track">
+            {prev ? (
+              <Link href={`${trackHref}/${encodeURIComponent(prev.slug)}`} className="article-pager-link">
+                <span className="article-pager-label">
+                  <ArrowLeft size={12} aria-hidden="true" /> Previous
+                </span>
+                <span className="article-pager-title">{prev.title}</span>
+              </Link>
+            ) : (
+              <span />
+            )}
 
-        {next ? (
-          <Link
-            href={`/studies/${encodeURIComponent(category.slug)}/${encodeURIComponent(next.slug)}`}
-            className="surface-card block"
-          >
-            <p className="text-right text-sm text-[--text-primary]">{next.title}</p>
-          </Link>
-        ) : <span />}
+            {next ? (
+              <Link href={`${trackHref}/${encodeURIComponent(next.slug)}`} className="article-pager-link article-pager-next">
+                <span className="article-pager-label">
+                  Next <ArrowRight size={12} aria-hidden="true" />
+                </span>
+                <span className="article-pager-title">{next.title}</span>
+              </Link>
+            ) : null}
+          </nav>
+        ) : null}
       </div>
-    </section>
+    </div>
   );
 }

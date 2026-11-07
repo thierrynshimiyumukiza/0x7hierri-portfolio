@@ -3,11 +3,12 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import AdminShell from "@/components/admin/AdminShell";
 import AdminFormEnhancer from "@/components/admin/AdminFormEnhancer";
+import { getAdminUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
-  const supabase = createClient();
-  const { data } = await supabase.auth.getSession();
+  // middleware.ts is the real gate; this only decides whether to draw the shell.
+  const adminUser = await getAdminUser();
 
   const headerStore = headers();
   const hintedPath =
@@ -15,7 +16,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
 
   const isLoginRoute = hintedPath.includes("/admin/login");
 
-  if (!data.session && !isLoginRoute) {
+  if (!adminUser && !isLoginRoute) {
     redirect("/admin/login");
   }
 

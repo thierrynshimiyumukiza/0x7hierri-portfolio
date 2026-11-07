@@ -1,5 +1,6 @@
 "use server";
 
+import { requireAdmin } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -31,6 +32,7 @@ function revalidateHomepage() {
 }
 
 export async function saveHomepageSettings(id: string | null, payload: HomepageSettingsPayload) {
+  await requireAdmin();
   const supabase = createAdminClient() as any;
 
   if (id) {
@@ -49,6 +51,7 @@ export async function saveHomepageSettings(id: string | null, payload: HomepageS
 }
 
 export async function createHomepageExpertise(payload: HomepageExpertisePayload) {
+  await requireAdmin();
   const supabase = createAdminClient() as any;
   const { error } = await supabase.from("homepage_expertise").insert(payload);
   if (error) {
@@ -59,6 +62,7 @@ export async function createHomepageExpertise(payload: HomepageExpertisePayload)
 }
 
 export async function updateHomepageExpertise(id: string, payload: HomepageExpertisePayload) {
+  await requireAdmin();
   const supabase = createAdminClient() as any;
   const { error } = await supabase.from("homepage_expertise").update(payload).eq("id", id);
   if (error) {
@@ -69,6 +73,7 @@ export async function updateHomepageExpertise(id: string, payload: HomepageExper
 }
 
 export async function deleteHomepageExpertise(id: string) {
+  await requireAdmin();
   const supabase = createAdminClient() as any;
   const { error } = await supabase.from("homepage_expertise").delete().eq("id", id);
   if (error) {

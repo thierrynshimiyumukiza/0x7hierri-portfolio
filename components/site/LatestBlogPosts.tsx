@@ -5,6 +5,7 @@ import { formatDateTime } from "@/lib/utils";
 import type { Tables } from "@/types/database";
 import SectionHeader from "@/components/site/SectionHeader";
 import Thumbnail from "@/components/site/Thumbnail";
+import { releasedFilter } from "@/lib/publishing";
 
 export default async function LatestBlogPosts() {
   const supabase = createClient();
@@ -12,6 +13,7 @@ export default async function LatestBlogPosts() {
     .from("blog_posts")
     .select("id,title,slug,excerpt,thumbnail_url,published_at,reading_time,tags")
     .eq("status", "published")
+    .or(releasedFilter())
     .order("published_at", { ascending: false })
     .limit(2);
   const data =

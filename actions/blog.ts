@@ -1,5 +1,6 @@
 "use server";
 
+import { requireAdmin } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { calculateReadingTime, generateSlug } from "@/lib/utils";
@@ -24,6 +25,7 @@ function revalidateBlog(slugs: (string | null | undefined)[] = []) {
 }
 
 export async function createBlogPost(data: Inserts<"blog_posts">) {
+  await requireAdmin();
   const supabase = createAdminClient();
   const baseSlug = normalizeSlugValue(data.slug || data.title, "post");
   const normalizedStatus = data.status ?? "published";
@@ -63,6 +65,7 @@ export async function createBlogPost(data: Inserts<"blog_posts">) {
 }
 
 export async function updateBlogPost(id: string, data: Updates<"blog_posts">) {
+  await requireAdmin();
   const supabase = createAdminClient();
   const { data: currentPost, error: currentPostError } = await supabase
     .from("blog_posts")
@@ -115,6 +118,7 @@ export async function updateBlogPost(id: string, data: Updates<"blog_posts">) {
 }
 
 export async function deleteBlogPost(id: string) {
+  await requireAdmin();
   const supabase = createAdminClient();
   const { data: current } = await supabase.from("blog_posts").select("slug").eq("id", id).maybeSingle();
 
@@ -126,6 +130,7 @@ export async function deleteBlogPost(id: string) {
 
 /** Quick status change from the post list, without opening the editor. */
 export async function setBlogPostStatus(id: string, status: EntryStatus) {
+  await requireAdmin();
   const supabase = createAdminClient();
   const { data: current, error: currentError } = await supabase
     .from("blog_posts")
@@ -151,6 +156,7 @@ export async function setBlogPostStatus(id: string, status: EntryStatus) {
 }
 
 export async function setBlogPostFeatured(id: string, featured: boolean) {
+  await requireAdmin();
   const supabase = createAdminClient();
   const { error } = await supabase
     .from("blog_posts")
@@ -164,6 +170,7 @@ export async function setBlogPostFeatured(id: string, featured: boolean) {
 
 /** Copies a post as a fresh draft so a similar piece can start from it. */
 export async function duplicateBlogPost(id: string) {
+  await requireAdmin();
   const supabase = createAdminClient();
   const { data, error } = await supabase.from("blog_posts").select("*").eq("id", id).maybeSingle();
 

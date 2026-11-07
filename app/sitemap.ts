@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { createClient } from "@/lib/supabase/server";
 import type { Tables } from "@/types/database";
+import { releasedFilter } from "@/lib/publishing";
 
 type SitemapStudyEntry = Pick<Tables<"study_entries">, "slug" | "updated_at"> & {
   study_categories:
@@ -14,7 +15,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const supabase = createClient();
 
   const [blogResult, categoryResult, entryResult] = await Promise.all([
-    supabase.from("blog_posts").select("slug,updated_at").eq("status", "published"),
+    supabase.from("blog_posts").select("slug,updated_at").eq("status", "published").or(releasedFilter()),
     supabase.from("study_categories").select("slug,updated_at").eq("status", "published"),
     supabase
       .from("study_entries")

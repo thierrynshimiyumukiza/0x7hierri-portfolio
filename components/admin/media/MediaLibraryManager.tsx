@@ -10,16 +10,26 @@ import type { Tables } from "@/types/database";
 
 export type MediaRow = Pick<
   Tables<"media_library">,
-  "id" | "url" | "file_name" | "media_type" | "file_size" | "bucket" | "created_at"
+  "id" | "url" | "file_name" | "media_type" | "file_size" | "bucket" | "created_at" | "alt_text"
 >;
 
 type MediaLibraryManagerProps = {
   items: MediaRow[];
   onDelete: (formData: FormData) => Promise<void>;
   onAddUrl: (formData: FormData) => Promise<void>;
+  onSaveAlt: (formData: FormData) => Promise<void>;
 };
 
-type TypeFilter = "all" | "image" | "video" | "pdf" | "attachment";
+type TypeFilter = "all" | "image" | "video" | "pdf" | "attachment" | "missing-alt" | "duplicates";
+
+/** Same name and byte size means the same upload; URL-mode rows compare by URL. */
+function duplicateKey(item: MediaRow) {
+  return item.file_name && item.file_size ? `${item.file_name}:${item.file_size}` : item.url;
+}
+
+function needsAlt(item: MediaRow) {
+  return (item.media_type ?? "image") === "image" && !item.alt_text?.trim();
+}
 
 function formatBytes(size: number | null): string {
   if (!size || size <= 0) return "";
@@ -28,7 +38,7 @@ function formatBytes(size: number | null): string {
   return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export default function MediaLibraryManager({ items, onDelete, onAddUrl }: MediaLibraryManagerProps) {
+export default function MediaLibraryManager({ items, onDelete, onAddUrl, onSaveAlt }: MediaLibraryManagerProps) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
@@ -39,6 +49,21 @@ export default function MediaLibraryManager({ items, onDelete, onAddUrl }: Media
   const [confirmingId, setConfirmingId] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  // The oldest copy of each duplicate group is the one to keep.
+  const duplicateOf = useMemo(() => {
+    const firstSeen = new Map<string, MediaRow>();
+    const result = new Map<string, MediaRow>();
+    [...items]
+      .sort((a, b) => (a.created_at ?? "").localeCompare(b.created_at ?? ""))
+      .forEach((item) => {
+        const key = duplicateKey(item);
+        const original = firstSeen.get(key);
+        if (original) result.set(item.id, original);
+        else firstSeen.set(key, item);
+      });
+    return result;
+  }, [items]);
+
   const counts = useMemo(
     () => ({
       all: items.length,
@@ -46,18 +71,26 @@ export default function MediaLibraryManager({ items, onDelete, onAddUrl }: Media
       video: items.filter((item) => item.media_type === "video").length,
       pdf: items.filter((item) => item.media_type === "pdf").length,
       attachment: items.filter((item) => item.media_type === "attachment").length,
+      "missing-alt": items.filter(needsAlt).length,
+      duplicates: duplicateOf.size,
     }),
-    [items],
+    [items, duplicateOf],
   );
 
   const visible = useMemo(() => {
     const term = query.trim().toLowerCase();
     return items.filter((item) => {
-      if (typeFilter !== "all" && item.media_type !== typeFilter) return false;
+      if (typeFilter === "missing-alt") {
+        if (!needsAlt(item)) return false;
+      } else if (typeFilter === "duplicates") {
+        if (!duplicateOf.has(item.id)) return false;
+      } else if (typeFilter !== "all" && item.media_type !== typeFilter) {
+        return false;
+      }
       if (!term) return true;
       return (item.file_name ?? "").toLowerCase().includes(term) || item.url.toLowerCase().includes(term);
     });
-  }, [items, query, typeFilter]);
+  }, [items, query, typeFilter, duplicateOf]);
 
   async function uploadFiles(files: FileList | null) {
     if (!files?.length) return;
@@ -192,7 +225,9 @@ export default function MediaLibraryManager({ items, onDelete, onAddUrl }: Media
         </div>
 
         <div className="cms-filter-row">
-          {(["all", "image", "video", "pdf", "attachment"] as TypeFilter[]).map((value) => (
+          {(["all", "image", "video", "pdf", "attachment", "missing-alt", "duplicates"] as TypeFilter[])
+            .filter((value) => value === "all" || counts[value] > 0 || typeFilter === value)
+            .map((value) => (
             <button
               key={value}
               type="button"
@@ -200,7 +235,7 @@ export default function MediaLibraryManager({ items, onDelete, onAddUrl }: Media
               data-active={typeFilter === value ? "true" : "false"}
               onClick={() => setTypeFilter(value)}
             >
-              {value}
+              {value === "missing-alt" ? "needs alt text" : value}
               <span>{counts[value]}</span>
             </button>
           ))}
@@ -221,7 +256,7 @@ export default function MediaLibraryManager({ items, onDelete, onAddUrl }: Media
               <li key={item.id} className="media-tile">
                 <div className="media-tile-preview">
                   {isImage && url ? (
-                    <img src={url} alt={item.file_name ?? ""} loading="lazy" />
+                    <img src={url} alt={item.alt_text ?? ""} loading="lazy" />
                   ) : (
                     <span className="media-tile-icon">
                       {item.media_type === "video" ? <Film size={18} aria-hidden="true" /> : <FileText size={18} aria-hidden="true" />}
@@ -238,6 +273,35 @@ export default function MediaLibraryManager({ items, onDelete, onAddUrl }: Media
                     {formatBytes(item.file_size) ? ` · ${formatBytes(item.file_size)}` : ""}
                     {item.created_at ? ` · ${formatDateTime(item.created_at)}` : ""}
                   </p>
+                  {needsAlt(item) || duplicateOf.has(item.id) ? (
+                    <p className="media-tile-flags">
+                      {needsAlt(item) ? <span data-flag="alt">needs alt text</span> : null}
+                      {duplicateOf.has(item.id) ? (
+                        <span data-flag="duplicate" title={`Same file as ${duplicateOf.get(item.id)?.file_name ?? "an earlier upload"}`}>
+                          duplicate
+                        </span>
+                      ) : null}
+                    </p>
+                  ) : null}
+                  {isImage ? (
+                    <form action={onSaveAlt} className="media-alt-form">
+                      <input type="hidden" name="id" value={item.id} />
+                      <label className="sr-only" htmlFor={`alt-${item.id}`}>
+                        Alt text for {item.file_name ?? "image"}
+                      </label>
+                      <input
+                        id={`alt-${item.id}`}
+                        name="alt_text"
+                        defaultValue={item.alt_text ?? ""}
+                        placeholder="Describe the image (alt text)"
+                        className="admin-input"
+                        // Saving on blur keeps the grid free of per-tile save buttons.
+                        onBlur={(event) => {
+                          if (event.currentTarget.value !== (item.alt_text ?? "")) event.currentTarget.form?.requestSubmit();
+                        }}
+                      />
+                    </form>
+                  ) : null}
                 </div>
 
                 <div className="media-tile-actions">

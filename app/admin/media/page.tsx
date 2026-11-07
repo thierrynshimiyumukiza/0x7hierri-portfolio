@@ -1,4 +1,4 @@
-import { createMediaItem, deleteMediaItem } from "@/actions/media";
+import { createMediaItem, deleteMediaItem, updateMediaAltText } from "@/actions/media";
 import { createAdminClient } from "@/lib/supabase/admin";
 import MediaLibraryManager, { type MediaRow } from "@/components/admin/media/MediaLibraryManager";
 import type { Database } from "@/types/database";
@@ -9,7 +9,7 @@ export default async function AdminMediaPage() {
   const supabase = createAdminClient();
   const { data } = await supabase
     .from("media_library")
-    .select("id,url,file_name,media_type,file_size,bucket,created_at")
+    .select("id,url,file_name,media_type,file_size,bucket,created_at,alt_text")
     .order("created_at", { ascending: false })
     .limit(300);
 
@@ -36,5 +36,12 @@ export default async function AdminMediaPage() {
     if (id) await deleteMediaItem(id);
   }
 
-  return <MediaLibraryManager items={items} onAddUrl={addUrl} onDelete={remove} />;
+  async function saveAlt(formData: FormData) {
+    "use server";
+
+    const id = String(formData.get("id") ?? "");
+    if (id) await updateMediaAltText(id, String(formData.get("alt_text") ?? ""));
+  }
+
+  return <MediaLibraryManager items={items} onAddUrl={addUrl} onDelete={remove} onSaveAlt={saveAlt} />;
 }

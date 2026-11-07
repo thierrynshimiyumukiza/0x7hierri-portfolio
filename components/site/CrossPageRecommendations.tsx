@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import UnifiedPreviewCard from "@/components/site/UnifiedPreviewCard";
+import Link from "next/link";
 import type { Tables } from "@/types/database";
+import { releasedFilter } from "@/lib/publishing";
 
 type RecommendationType = "project" | "study" | "blog";
 
@@ -22,6 +23,8 @@ type CrossPageRecommendationsProps = {
   seedTags?: string[] | null;
   currentType?: RecommendationType;
   currentSlug?: string;
+  /** Leave a whole kind out, e.g. projects while already on the projects page. */
+  excludeType?: RecommendationType;
   limit?: number;
 };
 
@@ -43,6 +46,7 @@ export default async function CrossPageRecommendations({
   seedTags,
   currentType,
   currentSlug,
+  excludeType,
   limit = 4,
 }: CrossPageRecommendationsProps) {
   const supabase = createAdminClient();
@@ -65,6 +69,7 @@ export default async function CrossPageRecommendations({
       .from("blog_posts")
       .select("id,title,slug,excerpt,thumbnail_url,tags,published_at,reading_time")
       .eq("status", "published")
+      .or(releasedFilter())
       .order("published_at", { ascending: false })
       .limit(12),
   ]);
@@ -149,6 +154,7 @@ export default async function CrossPageRecommendations({
     });
 
   const candidates = [...projectCards, ...studyCards, ...blogCards]
+    .filter((item) => item.type !== excludeType)
     .filter((item) => Number.isFinite(item.timestamp))
     .sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score;
@@ -160,24 +166,33 @@ export default async function CrossPageRecommendations({
     return null;
   }
 
+  const kindLabel: Record<RecommendationType, string> = { project: "project", study: "study", blog: "writeup" };
+
   return (
-    <section className="mt-12 border-t border-[--border-muted] pt-8">
-      <div className="mb-4 flex items-center justify-between">
-        <span className="mono-label">cross-page recommendations</span>
-        <span className="text-xs text-[--text-dim]">{title}</span>
+    <section className="ui-section" aria-labelledby="related-heading">
+      <div className="mb-5 flex flex-wrap items-baseline justify-between gap-4">
+        <h2 id="related-heading" style={{ fontSize: 24, fontWeight: 600, letterSpacing: "-0.01em", color: "var(--text-primary)" }}>
+          {title}
+        </h2>
+        <Link href="/blog" className="ui-link ui-mono" style={{ fontSize: 14 }}>
+          all writeups →
+        </Link>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="ui-grid-auto" style={{ ["--ui-min" as string]: "300px", ["--ui-gap" as string]: "16px" }}>
         {candidates.map((item) => (
-          <UnifiedPreviewCard
-            key={item.id}
-            kind={item.type}
-            title={item.title}
-            href={item.href}
-            summary={item.summary}
-            imageUrl={item.imageUrl}
-            tags={item.tags}
-            actionLabel="open"
-          />
+          <Link key={item.id} href={item.href} className="ui-card ui-row-link flex flex-col gap-2.5" style={{ padding: 24 }}>
+            <span className="ui-mono" style={{ fontSize: 12, color: "var(--text-dim)" }}>
+              {kindLabel[item.type]}
+            </span>
+            <span className="ui-row-title" style={{ fontSize: 18, fontWeight: 500, lineHeight: 1.4, color: "var(--text-primary)" }}>
+              {item.title}
+            </span>
+            {item.summary ? (
+              <span className="line-clamp-2" style={{ color: "var(--text-muted)", fontSize: 15, lineHeight: 1.55 }}>
+                {item.summary}
+              </span>
+            ) : null}
+          </Link>
         ))}
       </div>
     </section>

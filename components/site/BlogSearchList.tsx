@@ -27,6 +27,11 @@ const SORT_LABELS: Record<SortMode, string> = {
   shortest: "Quickest read",
 };
 
+/** Tags are typed by hand in the CMS: "#Kernel" and "kernel" are the same tag. */
+function normalizeTag(tag: string) {
+  return displayTag(tag).toLowerCase();
+}
+
 function publishedTime(post: BlogPost): number {
   const value = post.published_at ? new Date(post.published_at).getTime() : 0;
   return Number.isNaN(value) ? 0 : value;
@@ -68,7 +73,9 @@ export default function BlogSearchList({ posts, initialTag = "" }: BlogSearchLis
   const allTags = useMemo(() => {
     const counts = new Map<string, number>();
     posts.forEach((post) => {
-      (post.tags ?? []).forEach((tag) => counts.set(tag, (counts.get(tag) ?? 0) + 1));
+      new Set((post.tags ?? []).map(normalizeTag)).forEach((tag) =>
+        counts.set(tag, (counts.get(tag) ?? 0) + 1),
+      );
     });
     return Array.from(counts.entries())
       .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
@@ -80,7 +87,7 @@ export default function BlogSearchList({ posts, initialTag = "" }: BlogSearchLis
     const term = query.trim().toLowerCase();
 
     const matched = posts.filter((post) => {
-      if (activeTag && !(post.tags ?? []).includes(activeTag)) return false;
+      if (activeTag && !(post.tags ?? []).some((tag) => normalizeTag(tag) === normalizeTag(activeTag))) return false;
       if (!term) return true;
 
       return (
@@ -186,8 +193,8 @@ export default function BlogSearchList({ posts, initialTag = "" }: BlogSearchLis
             <button
               key={tag}
               type="button"
-              onClick={() => setActiveTag((current) => (current === tag ? "" : tag))}
-              data-active={activeTag === tag ? "true" : "false"}
+              onClick={() => setActiveTag((current) => (normalizeTag(current) === tag ? "" : tag))}
+              data-active={activeTag && normalizeTag(activeTag) === tag ? "true" : "false"}
               className="blog-tag-chip"
             >
               #{displayTag(tag)}
